@@ -16,3 +16,13 @@ export async function getNextSequence(key: string): Promise<number> {
     return nextVal;
   });
 }
+
+// Peek current sequence without increment
+export async function peekSequence(key: string): Promise<number> {
+  const res = await withTransaction(async (client) => {
+    const row = await client.query("select value from sequencing where key=$1", [key]);
+    if (row.rowCount === 0) return 0;
+    return Number(row.rows[0].value);
+  });
+  return res;
+}

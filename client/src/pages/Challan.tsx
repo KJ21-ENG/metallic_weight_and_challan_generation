@@ -18,7 +18,6 @@ type BasketItem = {
 
 export function ChallanPage() {
   const [date, setDate] = useState(dayjs().format('YYYY-MM-DD'))
-  const [reservedChallanNo, setReservedChallanNo] = useState<number | null>(null)
 
   const [customers, setCustomers] = useState<Option[]>([])
   const [shifts, setShifts] = useState<Option[]>([])
@@ -35,17 +34,20 @@ export function ChallanPage() {
   const [basket, setBasket] = useState<BasketItem[]>([])
 
   useEffect(() => { (async () => {
-    setCustomers(await getOptions('customers'))
-    setShifts(await getOptions('shifts'))
-    setMetallics(await getOptions('metallics'))
-    setCuts(await getOptions('cuts'))
-    setEmployees(await getOptions('employees'))
-    setBobTypes(await getOptions('bob_types'))
-    setBoxTypes(await getOptions('box_types'))
-    try {
-      const res = await api.post('/challans/reserve-number')
-      setReservedChallanNo(res.data.challan_no)
-    } catch {}
+    const [c, s, m, cu, e, bt, bx] = await Promise.all([
+      getOptions('customers'),
+      getOptions('shifts'),
+      getOptions('metallics'),
+      getOptions('cuts'),
+      getOptions('employees'),
+      getOptions('bob_types'),
+      getOptions('box_types'),
+    ])
+    setCustomers(c); setShifts(s); setMetallics(m); setCuts(cu); setEmployees(e); setBobTypes(bt); setBoxTypes(bx)
+    // Auto-select first customer and shift if not chosen
+    if (!customerId && c.length) setCustomerId(c[0].id)
+    if (!shiftId && s.length) setShiftId(s[0].id)
+    // Do not reserve challan number on load; final challan_no will be assigned on save.
   })() }, [])
 
   function weightOf(opts: Option[], id: number) { return Number(opts.find(o => Number(o.id) === Number(id))?.weight_kg ?? 0) }
@@ -59,8 +61,7 @@ export function ChallanPage() {
 
   function buildBarcode(idx: number) {
     const yy = dayjs(date).format('YY')
-    const ch = reservedChallanNo != null ? String(reservedChallanNo).padStart(6, '0') : '000000'
-    return `CH-${yy}-${ch}-${String(idx).padStart(2, '0')}`
+    return `CH-${yy}-000000-${String(idx).padStart(2, '0')}`
   }
 
   function printLabel(idx: number, item: BasketItem) {
@@ -126,7 +127,6 @@ export function ChallanPage() {
   async function generateChallan() {
     if (!customerId || !shiftId || basket.length === 0) return alert('Fill header and add items')
     const payload: any = { date, customer_id: Number(customerId), shift_id: Number(shiftId), items: basket }
-    if (reservedChallanNo != null) payload.challan_no = reservedChallanNo
     const res = await api.post('/challans', payload)
     const id = res.data.challan.id as number
     window.open(`/api/challans/${id}/print`, '_blank')
@@ -229,7 +229,7 @@ export function ChallanPage() {
             <Grid item xs={12} sm={1}><TextField fullWidth type="text" inputProps={{ readOnly: true }} label="Net (kg)" value={net.toFixed(3)} /></Grid>
             <Grid item xs={12} sm={2}><Button fullWidth onClick={addToBasket}>Add & Print Label</Button></Grid>
           </Grid>
-          <Alert severity="info" sx={{ mt: 2 }}>Barcode prefix: {reservedChallanNo ? `CH-${dayjs(date).format('YY')}-${String(reservedChallanNo).padStart(6,'0')}-XX` : 'reserving…'}</Alert>
+          <Alert severity="info" sx={{ mt: 2 }}>Barcode preview uses 000000 until challan is saved.</Alert>
         </CardContent>
       </Card>
 
@@ -275,6 +275,27 @@ export function ChallanPage() {
                 </TableRow>
                   )
                 })}
+                {basket.length > 0 && (() => {
+                  const totals = basket.reduce((acc, b) => {
+                    const bobWt = weightOf(bobTypes, b.bob_type_id)
+                    const boxWt = weightOf(boxTypes, b.box_type_id)
+                    const t = round3((Number(b.bob_qty)||0) * bobWt + boxWt)
+                    const n = round3((Number(b.gross_wt)||0) - t)
+                    acc.qty += Number(b.bob_qty)||0
+                    acc.net += n
+                    return acc
+                  }, { qty: 0, net: 0 })
+                  return (
+                    <TableRow>
+                      <TableCell colSpan={5}><b>Totals</b></TableCell>
+                      <TableCell align="right"><b>{totals.qty}</b></TableCell>
+                      <TableCell />
+                      <TableCell />
+                      <TableCell align="right"><b>{totals.net.toFixed(3)}</b></TableCell>
+                      <TableCell />
+                    </TableRow>
+                  )
+                })()}
               </TableBody>
             </Table>
           </TableContainer>

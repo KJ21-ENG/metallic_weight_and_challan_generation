@@ -11,13 +11,7 @@ import { config } from "../config";
 
 export const challansRouter = Router();
 
-// Reserve next challan number for client-side barcode display (optional)
-challansRouter.post("/reserve-number", async (_req: Request, res: Response, next: NextFunction) => {
-  try {
-    const challanNo = await getNextSequence("challan_no");
-    res.json({ challan_no: challanNo });
-  } catch (err) { next(err); }
-});
+// Removed reserve-number to avoid accidental sequence increments
 
 // List challans (optionally by date range)
 challansRouter.get("/", async (req: Request, res: Response, next: NextFunction) => {
@@ -105,8 +99,8 @@ challansRouter.post("/", async (req: Request, res: Response, next: NextFunction)
       const cuts = await client.query("select id, name from cuts");
       const employees = await client.query("select id, name from employees");
 
-      const findName = (rows: any[], id: number, field: string = "name") => rows.find((r) => r.id === id)?.[field] || "";
-      const findWeight = (rows: any[], id: number) => Number(rows.find((r) => r.id === id)?.weight_kg || 0);
+      const findName = (rows: any[], id: number, field: string = "name") => rows.find((r) => Number(r.id) === Number(id))?.[field] || "";
+      const findWeight = (rows: any[], id: number) => Number(rows.find((r) => Number(r.id) === Number(id))?.weight_kg || 0);
 
       const itemRows: any[] = [];
 
@@ -136,10 +130,10 @@ challansRouter.post("/", async (req: Request, res: Response, next: NextFunction)
             it.helper_id ?? null,
             it.bob_type_id,
             it.box_type_id,
-            it.bob_qty,
-            it.gross_wt,
-            tare,
-            net,
+            Number(it.bob_qty),
+            Number(it.gross_wt),
+            Number(tare),
+            Number(net),
             barcode,
           ]
         );
@@ -216,8 +210,8 @@ challansRouter.put("/:id", async (req: Request, res: Response, next: NextFunctio
       const cuts = await client.query("select id, name from cuts");
       const employees = await client.query("select id, name from employees");
 
-      const findName = (rows: any[], id: number, field: string = "name") => rows.find((r) => r.id === id)?.[field] || "";
-      const findWeight = (rows: any[], id: number) => Number(rows.find((r) => r.id === id)?.weight_kg || 0);
+      const findName = (rows: any[], id: number, field: string = "name") => rows.find((r) => Number(r.id) === Number(id))?.[field] || "";
+      const findWeight = (rows: any[], id: number) => Number(rows.find((r) => Number(r.id) === Number(id))?.weight_kg || 0);
 
       const itemRows: any[] = [];
       for (let i = 0; i < items.length; i++) {
@@ -242,10 +236,10 @@ challansRouter.put("/:id", async (req: Request, res: Response, next: NextFunctio
             it.helper_id ?? null,
             it.bob_type_id,
             it.box_type_id,
-            it.bob_qty,
-            it.gross_wt,
-            tare,
-            net,
+            Number(it.bob_qty),
+            Number(it.gross_wt),
+            Number(tare),
+            Number(net),
             barcode,
           ]
         );
