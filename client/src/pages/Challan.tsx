@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import dayjs from 'dayjs'
 import { api, getOptions } from '../api'
 import { Box, Button, Card, CardContent, Divider, FormControl, Grid, InputLabel, MenuItem, Select, Stack, TextField, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Alert } from '@mui/material'
+import { Modal } from '../components/Modal'
+import { LabelPreview } from '../components/LabelPreview'
+import { useReactToPrint } from 'react-to-print'
 
 type Option = { id: number; name: string; weight_kg?: number; role_operator?: boolean; role_helper?: boolean }
 
@@ -32,6 +35,15 @@ export function ChallanPage() {
 
   const [form, setForm] = useState<BasketItem>({ metallic_id: 0, cut_id: 0, operator_id: 0, helper_id: null, bob_type_id: 0, box_type_id: 0, bob_qty: 0, gross_wt: 0 })
   const [basket, setBasket] = useState<BasketItem[]>([])
+
+  const [labelOpen, setLabelOpen] = useState(false)
+  const [labelData, setLabelData] = useState<any | null>(null)
+  const printRef = useRef<HTMLDivElement>(null)
+  // use imperative print method; provide content at call time per v3 API
+  const printFn = useReactToPrint({ contentRef: printRef as any } as any)
+
+  const [pdfOpen, setPdfOpen] = useState(false)
+  const [pdfUrl, setPdfUrl] = useState<string>('')
 
   useEffect(() => { (async () => {
     const [c, s, m, cu, e, bt, bx] = await Promise.all([
@@ -64,8 +76,7 @@ export function ChallanPage() {
     return `CH-${yy}-000000-${String(idx).padStart(2, '0')}`
   }
 
-  function printLabel(idx: number, item: BasketItem) {
-    const w = window.open('', '_blank', 'width=500,height=400')!
+  function openLabelModal(idx: number, item: BasketItem) {
     const metallic = nameOf(metallics, item.metallic_id)
     const cut = nameOf(cuts, item.cut_id)
     const bobType = nameOf(bobTypes, item.bob_type_id)
@@ -75,47 +86,26 @@ export function ChallanPage() {
     const tare = item.bob_qty * bobWt + boxWt
     const net = item.gross_wt - tare
     const barcode = buildBarcode(idx)
-
-    w.document.write(`<!doctype html><html><head><meta charset=\"utf-8\"/>
-    <script src=\"https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js\"></script>
-    <style>
-      @page { size: 125mm 75mm; margin: 0; }
-      body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-      .label { width: 125mm; height: 75mm; padding: 8mm; box-sizing: border-box; }
-      .title { font-size: 18px; font-weight: 700; margin-bottom: 4mm; }
-      .row { display: flex; gap: 6mm; margin-bottom: 2mm; }
-      .kv { min-width: 40mm; }
-      .muted { opacity: .8 }
-      .weights { display: flex; gap: 8mm; font-size: 14px; margin-top: 4mm; }
-      .barcode { margin-top: 2mm }
-    </style></head><body>
-      <div class="label">
-        <div class="title">Box Label</div>
-        <svg id="barcode" class="barcode"></svg>
-        <div class="row"><div class="kv"><b>Metallic</b></div><div>${metallic}</div></div>
-        <div class="row"><div class="kv"><b>Cut</b></div><div>${cut}</div></div>
-        <div class="row"><div class="kv"><b>Bob/Box</b></div><div>${bobType} / ${boxType}</div></div>
-        <div class="row"><div class="kv"><b>Bob Qty</b></div><div>${item.bob_qty}</div></div>
-        <div class="weights">
-          <div>Gross: <b>${item.gross_wt.toFixed(3)}</b> kg</div>
-          <div>Tare: <b>${tare.toFixed(3)}</b> kg</div>
-          <div>Net: <b>${net.toFixed(3)}</b> kg</div>
-        </div>
-        <div class="muted" style="margin-top:4mm">Auto-printed on add</div>
-      </div>
-      <script>
-        window.onload = function(){
-          try { JsBarcode('#barcode', '${barcode}', {format: 'code128', width: 2, height: 60, displayValue: true, fontSize: 12}); } catch(e) {}
-          window.print(); setTimeout(() => window.close(), 250);
-        }
-      <\/script>
-    </body></html>`)
-    w.document.close()
+    setLabelData({
+      header: 'GLINTEX',
+      dateText: new Date().toLocaleString(),
+      color: metallic,
+      cut,
+      bobQty: item.bob_qty,
+      gross: item.gross_wt,
+      bobWeight: bobWt * item.bob_qty,
+      boxWeight: boxWt,
+      net,
+      operator: nameOf(employees, item.operator_id),
+      helper: item.helper_id ? nameOf(employees, item.helper_id) : '',
+      barcode,
+    })
+    setLabelOpen(true)
   }
 
   function addToBasket() {
     setBasket([...basket, form])
-    printLabel(basket.length + 1, form)
+    openLabelModal(basket.length + 1, form)
   }
 
   function removeFromBasket(index: number) {
@@ -129,7 +119,8 @@ export function ChallanPage() {
     const payload: any = { date, customer_id: Number(customerId), shift_id: Number(shiftId), items: basket }
     const res = await api.post('/challans', payload)
     const id = res.data.challan.id as number
-    window.open(`/api/challans/${id}/print`, '_blank')
+    setPdfUrl(`/api/challans/${id}/print`)
+    setPdfOpen(true)
     setBasket([])
   }
 
@@ -305,6 +296,25 @@ export function ChallanPage() {
           </Stack>
         </CardContent>
       </Card>
+
+      <Modal open={labelOpen} title="Print Label" onClose={() => setLabelOpen(false)} maxWidth="sm">
+        {labelData && (
+          <div>
+            <div ref={printRef} style={{ display: 'inline-block' }}>
+              <LabelPreview {...labelData} />
+            </div>
+            <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2 }}>
+              <Button onClick={() => printFn && printFn()}>Print</Button>
+            </Stack>
+          </div>
+        )}
+      </Modal>
+
+      <Modal open={pdfOpen} title="Challan PDF" onClose={() => setPdfOpen(false)} maxWidth="lg">
+        {pdfUrl && (
+          <iframe src={pdfUrl} style={{ width: '100%', height: '80vh', border: 0 }} />
+        )}
+      </Modal>
     </Stack>
   )
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import dayjs from 'dayjs'
 import { api, getOptions } from '../api'
-import { Button, Card, CardContent, Grid, Stack, TextField, Typography, TableContainer, Paper, Table, TableHead, TableRow, TableCell, TableBody, Select, MenuItem, FormControl, InputLabel } from '@mui/material'
+import { Button, Card, CardContent, Grid, Stack, TextField, Typography, TableContainer, Paper, Table, TableHead, TableRow, TableCell, TableBody, Select, MenuItem, FormControl, InputLabel, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material'
 
 type Option = { id: number; name: string; weight_kg?: number; role_operator?: boolean; role_helper?: boolean }
 
@@ -31,6 +31,8 @@ export function ManagementPage() {
   const [employees, setEmployees] = useState<Option[]>([])
   const [bobTypes, setBobTypes] = useState<Option[]>([])
   const [boxTypes, setBoxTypes] = useState<Option[]>([])
+  const [deleteRow, setDeleteRow] = useState<any | null>(null)
+  const [deleteReason, setDeleteReason] = useState('')
 
   useEffect(() => { load() }, [])
 
@@ -96,8 +98,14 @@ export function ManagementPage() {
   }
 
   async function softDelete(row: any) {
-    const reason = window.prompt('Reason for delete?') || ''
-    await api.delete(`/challans/${row.id}`, { params: { reason } })
+    setDeleteRow(row)
+    setDeleteReason('')
+  }
+
+  async function confirmDelete() {
+    if (!deleteRow) return
+    await api.delete(`/challans/${deleteRow.id}`, { params: { reason: deleteReason || undefined } })
+    setDeleteRow(null)
     await load()
   }
 
@@ -264,6 +272,16 @@ export function ManagementPage() {
           </TableBody>
         </Table>
       </TableContainer>
+      <Dialog open={!!deleteRow} onClose={() => setDeleteRow(null)}>
+        <DialogTitle>Delete Challan #{deleteRow ? String(deleteRow.challan_no).padStart(6,'0') : ''}</DialogTitle>
+        <DialogContent>
+          <TextField label="Reason" fullWidth value={deleteReason} onChange={e => setDeleteReason(e.target.value)} placeholder="Enter reason" />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteRow(null)} variant="outlined">Cancel</Button>
+          <Button onClick={confirmDelete} color="error">Delete</Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   )
 }

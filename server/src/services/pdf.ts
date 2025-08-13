@@ -47,34 +47,41 @@ export async function generateChallanPdf(options: {
   // Remove old if exists
   try { await fs.promises.unlink(absolutePath); } catch {}
 
-  const doc = new PDFDocument({ size: "A4", margin: 40 });
+  const doc = new PDFDocument({ size: "A4", margin: 36 });
   const writeStream = fs.createWriteStream(absolutePath);
   doc.pipe(writeStream);
 
-  doc.fontSize(18).text("Delivery Challan", { align: "center" });
+  // Header
+  doc.fontSize(20).text("Delivery Challan", { align: "center" });
   doc.moveDown(0.5);
-
+  doc.rect(36, doc.y, doc.page.width - 72, 70).stroke();
+  const left = 44;
+  const right = doc.page.width / 2;
   doc.fontSize(10);
-  doc.text(`Challan No: ${String(challanNo).padStart(6, "0")}`);
-  doc.text(`Date: ${date.format("DD/MM/YYYY")}`);
-  doc.text(`Shift: ${shiftName}`);
-  doc.moveDown(0.5);
+  doc.text(`Challan No: ${String(challanNo).padStart(6, "0")}`, left, doc.y + 8);
+  doc.text(`Date: ${date.format("DD/MM/YYYY")}`, left, doc.y + 22);
+  doc.text(`Shift: ${shiftName}`, left, doc.y + 36);
+  doc.text(`Customer: ${customer.name}`, right, doc.y + 8);
+  if (customer.address) doc.text(`Address: ${customer.address}`, right, doc.y + 22, { width: doc.page.width - right - 44 });
+  if (customer.gstin) doc.text(`GSTIN: ${customer.gstin}`, right, doc.y + 36);
+  doc.moveDown(5);
 
-  doc.text(`Customer: ${customer.name}`);
-  if (customer.address) doc.text(`Address: ${customer.address}`);
-  if (customer.gstin) doc.text(`GSTIN: ${customer.gstin}`);
+  // Table
+  const startX = 36;
+  const widths = [20, 90, 70, 80, 70, 60, 60, 50, 55, 55, 55];
+  const headers = ["#", "Metallic", "Cut", "Operator", "Helper", "Bob", "Box", "Qty", "Gross", "Tare", "Net"];
+  const colXs: number[] = [];
+  let x = startX;
+  widths.forEach((w) => { colXs.push(x); x += w; });
+  colXs.push(x);
+  doc.fontSize(11);
+  headers.forEach((h, i) => { doc.text(h, colXs[i] + 2, doc.y, { width: (colXs[i+1]-colXs[i])-4 }); });
+  doc.moveTo(startX, doc.y + 12).lineTo(x, doc.y + 12).stroke();
 
-  doc.moveDown(1);
-
-  // Table header
-  doc.fontSize(10).text(
-    "#  Metallic  Cut  Operator  Helper  BobType  BoxType  BobQty  Gross  Tare  Net",
-    { continued: false }
-  );
-  doc.moveTo(doc.x, doc.y).lineTo(550, doc.y).stroke();
-
+  let y = doc.y + 16;
+  const totals = { bobQty: 0, gross: 0, tare: 0, net: 0 };
   items.forEach((it) => {
-    const row = [
+    const cells = [
       String(it.item_index).padStart(2, "0"),
       it.metallic_name,
       it.cut_name,
@@ -86,25 +93,18 @@ export async function generateChallanPdf(options: {
       it.gross_wt.toFixed(3),
       it.tare_wt.toFixed(3),
       it.net_wt.toFixed(3),
-    ].join("  ");
-    doc.text(row);
+    ];
+    cells.forEach((c, i) => { doc.text(c, colXs[i] + 2, y, { width: (colXs[i+1]-colXs[i])-4 }); });
+    y += 16;
+    totals.bobQty += it.bob_qty; totals.gross += it.gross_wt; totals.tare += it.tare_wt; totals.net += it.net_wt;
   });
 
-  const totals = items.reduce(
-    (acc, it) => {
-      acc.bobQty += it.bob_qty;
-      acc.gross += it.gross_wt;
-      acc.tare += it.tare_wt;
-      acc.net += it.net_wt;
-      return acc;
-    },
-    { bobQty: 0, gross: 0, tare: 0, net: 0 }
-  );
-
-  doc.moveDown(0.5);
-  doc.text(
-    `Totals -> BobQty: ${totals.bobQty}  Gross: ${totals.gross.toFixed(3)}  Tare: ${totals.tare.toFixed(3)}  Net: ${totals.net.toFixed(3)}`
-  );
+  doc.moveTo(startX, y).lineTo(x, y).stroke();
+  doc.fontSize(10).text("Totals", colXs[0] + 2, y + 4, { width: (colXs[6]-colXs[0])-4 });
+  doc.text(String(totals.bobQty), colXs[7] + 2, y + 4, { width: (colXs[8]-colXs[7])-4 });
+  doc.text(totals.gross.toFixed(3), colXs[8] + 2, y + 4, { width: (colXs[9]-colXs[8])-4 });
+  doc.text(totals.tare.toFixed(3), colXs[9] + 2, y + 4, { width: (colXs[10]-colXs[9])-4 });
+  doc.text(totals.net.toFixed(3), colXs[10] + 2, y + 4);
 
   doc.end();
 
