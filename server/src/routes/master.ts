@@ -9,7 +9,15 @@ masterRouter.get("/:type", async (req: Request, res: Response, next: NextFunctio
   try {
     const { type } = req.params;
     const table = resolveTable(type);
-    const result = await pool.query(`select * from ${table} where is_active = true order by name asc`);
+    let sql = `select * from ${table} where is_active = true order by name asc`;
+    if (table === "bob_types" || table === "box_types") {
+      sql = `select id, name, (weight_kg)::float8 as weight_kg, is_active, created_at, updated_at, deleted_at, delete_reason from ${table} where is_active = true order by name asc`;
+    } else if (table === "employees") {
+      sql = `select id, name, role_operator, role_helper, is_active, created_at, updated_at, deleted_at, delete_reason from employees where is_active = true order by name asc`;
+    } else if (table === "customers") {
+      sql = `select id, name, address, gstin, is_active, created_at, updated_at, deleted_at, delete_reason from customers where is_active = true order by name asc`;
+    }
+    const result = await pool.query(sql);
     res.json(result.rows);
   } catch (err) { next(err); }
 });

@@ -23,11 +23,18 @@ challansRouter.post("/reserve-number", async (_req: Request, res: Response, next
 challansRouter.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { from, to } = req.query as { from?: string; to?: string };
-    let sql = "select * from challans where is_deleted = false";
+    let sql = `
+      select c.*, cu.name as customer_name,
+        coalesce(sum(ci.net_wt),0) as total_net_wt,
+        coalesce(sum(ci.bob_qty),0) as total_bob_qty
+      from challans c
+      join customers cu on cu.id = c.customer_id
+      left join challan_items ci on ci.challan_id = c.id and ci.is_deleted = false
+      where c.is_deleted = false`;
     const params: any[] = [];
-    if (from) { params.push(from); sql += ` and date >= $${params.length}`; }
-    if (to) { params.push(to); sql += ` and date <= $${params.length}`; }
-    sql += " order by id desc limit 500";
+    if (from) { params.push(from); sql += ` and c.date >= $${params.length}`; }
+    if (to) { params.push(to); sql += ` and c.date <= $${params.length}`; }
+    sql += " group by c.id, cu.name order by c.id desc limit 500";
     const result = await pool.query(sql, params);
     res.json(result.rows);
   } catch (err) { next(err); }
@@ -60,22 +67,22 @@ challansRouter.get("/:id/print", async (req: Request, res: Response, next: NextF
 });
 
 const itemSchema = z.object({
-  metallic_id: z.number(),
-  cut_id: z.number(),
-  operator_id: z.number(),
-  helper_id: z.number().nullable().optional(),
-  bob_type_id: z.number(),
-  box_type_id: z.number(),
-  bob_qty: z.number().int().nonnegative(),
-  gross_wt: z.number().nonnegative(),
+  metallic_id: z.coerce.number(),
+  cut_id: z.coerce.number(),
+  operator_id: z.coerce.number(),
+  helper_id: z.coerce.number().nullable().optional(),
+  bob_type_id: z.coerce.number(),
+  box_type_id: z.coerce.number(),
+  bob_qty: z.coerce.number().int().nonnegative(),
+  gross_wt: z.coerce.number().nonnegative(),
 });
 
 const createSchema = z.object({
   date: z.string(), // yyyy-mm-dd in IST
-  customer_id: z.number(),
-  shift_id: z.number(),
+  customer_id: z.coerce.number(),
+  shift_id: z.coerce.number(),
   items: z.array(itemSchema).min(1),
-  challan_no: z.number().optional(),
+  challan_no: z.coerce.number().optional(),
 });
 
 challansRouter.post("/", async (req: Request, res: Response, next: NextFunction) => {
@@ -107,11 +114,11 @@ challansRouter.post("/", async (req: Request, res: Response, next: NextFunction)
         const it = items[i];
         const itemIndex = i + 1;
 
-        const bobWt = findWeight(bobTypes.rows, it.bob_type_id);
-        const boxWt = findWeight(boxTypes.rows, it.box_type_id);
+        const bobWt = Number(findWeight(bobTypes.rows, it.bob_type_id));
+        const boxWt = Number(findWeight(boxTypes.rows, it.box_type_id));
 
-        const tare = computeTareKg(it.bob_qty, bobWt, boxWt);
-        const net = computeNetKg(it.gross_wt, tare);
+        const tare = computeTareKg(Number(it.bob_qty), bobWt, boxWt);
+        const net = computeNetKg(Number(it.gross_wt), tare);
 
         const barcode = buildBarcode(challanNo, itemIndex, date);
 
@@ -183,8 +190,8 @@ challansRouter.post("/", async (req: Request, res: Response, next: NextFunction)
 // Update challan: replace items entirely, regenerate PDF
 const updateSchema = z.object({
   date: z.string(),
-  customer_id: z.number(),
-  shift_id: z.number(),
+  customer_id: z.coerce.number(),
+  shift_id: z.coerce.number(),
   items: z.array(itemSchema).min(1),
 });
 
@@ -216,10 +223,10 @@ challansRouter.put("/:id", async (req: Request, res: Response, next: NextFunctio
       for (let i = 0; i < items.length; i++) {
         const it = items[i];
         const itemIndex = i + 1;
-        const bobWt = findWeight(bobTypes.rows, it.bob_type_id);
-        const boxWt = findWeight(boxTypes.rows, it.box_type_id);
-        const tare = computeTareKg(it.bob_qty, bobWt, boxWt);
-        const net = computeNetKg(it.gross_wt, tare);
+        const bobWt = Number(findWeight(bobTypes.rows, it.bob_type_id));
+        const boxWt = Number(findWeight(boxTypes.rows, it.box_type_id));
+        const tare = computeTareKg(Number(it.bob_qty), bobWt, boxWt);
+        const net = computeNetKg(Number(it.gross_wt), tare);
         const barcode = buildBarcode(challanRow.challan_no, itemIndex, date);
         const inserted = await client.query(
           `insert into challan_items (

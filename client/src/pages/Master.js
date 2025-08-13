@@ -1,6 +1,7 @@
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { useEffect, useState } from 'react';
 import { api, getOptions } from '../api';
+import { Box, Button, Card, CardContent, FormControl, Grid, Stack, Tab, Tabs, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Paper, Checkbox } from '@mui/material';
 const masterTabs = [
     { key: 'metallics', label: 'Metallic' },
     { key: 'cuts', label: 'Cut' },
@@ -15,8 +16,26 @@ export function MasterPage() {
     const [items, setItems] = useState([]);
     const [name, setName] = useState('');
     const [weight, setWeight] = useState('');
+    const [roleOp, setRoleOp] = useState(false);
+    const [roleHelp, setRoleHelp] = useState(false);
+    const [address, setAddress] = useState('');
+    const [gstin, setGstin] = useState('');
+    const [editingId, setEditingId] = useState(null);
+    const [edit, setEdit] = useState(null);
     const isWeighted = type === 'bob_types' || type === 'box_types';
-    useEffect(() => { load(); }, [type]);
+    const isEmployees = type === 'employees';
+    const isCustomers = type === 'customers';
+    useEffect(() => { load(); resetForm(); }, [type]);
+    function resetForm() {
+        setName('');
+        setWeight('');
+        setRoleOp(false);
+        setRoleHelp(false);
+        setAddress('');
+        setGstin('');
+        setEditingId(null);
+        setEdit(null);
+    }
     async function load() {
         const data = await getOptions(type);
         setItems(data);
@@ -24,17 +43,56 @@ export function MasterPage() {
     async function add() {
         if (!name.trim())
             return;
-        const body = { name };
+        const body = { name: name.trim() };
         if (isWeighted)
             body.weight_kg = Number(weight || 0);
+        if (isEmployees) {
+            body.role_operator = roleOp;
+            body.role_helper = roleHelp;
+        }
+        if (isCustomers) {
+            body.address = address || null;
+            body.gstin = gstin || null;
+        }
         const res = await api.post(`/master/${type}`, body);
-        setName('');
-        setWeight('');
+        resetForm();
         setItems([...items, res.data]);
     }
+    async function startEdit(i) {
+        setEditingId(i.id);
+        setEdit({ ...i });
+    }
+    async function saveEdit(i) {
+        if (!edit)
+            return;
+        const body = {};
+        if (isWeighted) {
+            body.name = edit.name;
+            body.weight_kg = Number(edit.weight_kg || 0);
+        }
+        else if (isEmployees) {
+            body.name = edit.name;
+            body.role_operator = !!edit.role_operator;
+            body.role_helper = !!edit.role_helper;
+        }
+        else if (isCustomers) {
+            body.name = edit.name;
+            body.address = edit.address || null;
+            body.gstin = edit.gstin || null;
+        }
+        else {
+            body.name = edit.name;
+        }
+        const res = await api.put(`/master/${type}/${i.id}`, body);
+        const updated = res.data;
+        setItems(items.map(it => it.id === i.id ? updated : it));
+        setEditingId(null);
+        setEdit(null);
+    }
     async function remove(id) {
-        await api.delete(`/master/${type}/${id}`);
+        const reason = window.prompt('Reason for delete?') || '';
+        await api.delete(`/master/${type}/${id}`, { params: { reason } });
         setItems(items.filter(i => i.id !== id));
     }
-    return (_jsxs("div", { children: [_jsx("div", { style: { display: 'flex', gap: 6, marginBottom: 12 }, children: masterTabs.map(t => (_jsx("button", { onClick: () => setType(t.key), style: { padding: '6px 10px', background: type === t.key ? '#444' : '#eee', color: type === t.key ? '#fff' : '#000' }, children: t.label }, t.key))) }), _jsxs("div", { style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }, children: [_jsx("input", { placeholder: "Name", value: name, onChange: e => setName(e.target.value) }), isWeighted && (_jsx("input", { placeholder: "Weight (kg)", type: "number", step: "0.001", value: weight, onChange: e => setWeight(e.target.value) })), _jsx("button", { onClick: add, children: "+ New" })] }), _jsxs("table", { style: { width: '100%', borderCollapse: 'collapse' }, children: [_jsx("thead", { children: _jsxs("tr", { children: [_jsx("th", { style: { textAlign: 'left' }, children: "Name" }), isWeighted && _jsx("th", { style: { textAlign: 'right' }, children: "Weight (kg)" }), _jsx("th", {})] }) }), _jsx("tbody", { children: items.map(i => (_jsxs("tr", { children: [_jsx("td", { children: i.name }), isWeighted && _jsx("td", { style: { textAlign: 'right' }, children: i.weight_kg?.toFixed?.(3) }), _jsx("td", { children: _jsx("button", { onClick: () => remove(i.id), children: "Delete" }) })] }, i.id))) })] })] }));
+    return (_jsxs(Stack, { spacing: 2, children: [_jsx(Tabs, { value: type, onChange: (_, v) => setType(v), children: masterTabs.map(t => _jsx(Tab, { value: t.key, label: t.label }, t.key)) }), _jsx(Card, { children: _jsx(CardContent, { children: _jsxs(Grid, { container: true, spacing: 2, alignItems: "center", children: [_jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsx(TextField, { fullWidth: true, label: "Name", value: name, onChange: e => setName(e.target.value) }) }), isWeighted && _jsx(Grid, { item: true, xs: 12, sm: 2, children: _jsx(TextField, { fullWidth: true, label: "Weight (kg)", type: "number", inputProps: { step: '0.001' }, value: weight, onChange: e => setWeight(e.target.value) }) }), isEmployees && (_jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(FormControl, { component: Box, sx: { display: 'flex', flexDirection: 'row', gap: 2 }, children: [_jsxs("label", { children: [_jsx(Checkbox, { checked: roleOp, onChange: e => setRoleOp(e.target.checked) }), " Operator"] }), _jsxs("label", { children: [_jsx(Checkbox, { checked: roleHelp, onChange: e => setRoleHelp(e.target.checked) }), " Helper"] })] }) })), isCustomers && (_jsxs(_Fragment, { children: [_jsx(Grid, { item: true, xs: 12, sm: 4, children: _jsx(TextField, { fullWidth: true, label: "Address", value: address, onChange: e => setAddress(e.target.value) }) }), _jsx(Grid, { item: true, xs: 12, sm: 2, children: _jsx(TextField, { fullWidth: true, label: "GSTIN", value: gstin, onChange: e => setGstin(e.target.value) }) })] })), _jsx(Grid, { item: true, xs: 12, sm: 'auto', children: _jsx(Button, { onClick: add, children: "+ New" }) })] }) }) }), _jsx(TableContainer, { component: Paper, children: _jsxs(Table, { size: "small", children: [_jsx(TableHead, { children: _jsxs(TableRow, { children: [_jsx(TableCell, { children: "Name" }), isWeighted && _jsx(TableCell, { align: "right", children: "Weight (kg)" }), isEmployees && _jsxs(_Fragment, { children: [_jsx(TableCell, { children: "Operator" }), _jsx(TableCell, { children: "Helper" })] }), isCustomers && _jsxs(_Fragment, { children: [_jsx(TableCell, { children: "Address" }), _jsx(TableCell, { children: "GSTIN" })] }), _jsx(TableCell, { align: "right", children: "Actions" })] }) }), _jsx(TableBody, { children: items.map(i => (_jsxs(TableRow, { children: [_jsx(TableCell, { children: editingId === i.id ? (_jsx(TextField, { size: "small", value: edit?.name || '', onChange: e => setEdit({ ...edit, name: e.target.value }) })) : i.name }), isWeighted && (_jsx(TableCell, { align: "right", children: editingId === i.id ? (_jsx(TextField, { size: "small", type: "number", inputProps: { step: '0.001' }, value: edit?.weight_kg ?? 0, onChange: e => setEdit({ ...edit, weight_kg: Number(e.target.value) }) })) : (i.weight_kg?.toFixed?.(3)) })), isEmployees && (_jsxs(_Fragment, { children: [_jsx(TableCell, { children: editingId === i.id ? _jsx(Checkbox, { checked: !!edit?.role_operator, onChange: e => setEdit({ ...edit, role_operator: e.target.checked }) }) : (i.role_operator ? 'Yes' : 'No') }), _jsx(TableCell, { children: editingId === i.id ? _jsx(Checkbox, { checked: !!edit?.role_helper, onChange: e => setEdit({ ...edit, role_helper: e.target.checked }) }) : (i.role_helper ? 'Yes' : 'No') })] })), isCustomers && (_jsxs(_Fragment, { children: [_jsx(TableCell, { children: editingId === i.id ? _jsx(TextField, { size: "small", value: edit?.address || '', onChange: e => setEdit({ ...edit, address: e.target.value }) }) : (i.address || '') }), _jsx(TableCell, { children: editingId === i.id ? _jsx(TextField, { size: "small", value: edit?.gstin || '', onChange: e => setEdit({ ...edit, gstin: e.target.value }) }) : (i.gstin || '') })] })), _jsx(TableCell, { align: "right", children: editingId === i.id ? (_jsxs(Stack, { direction: "row", justifyContent: "flex-end", spacing: 1, children: [_jsx(Button, { size: "small", onClick: () => saveEdit(i), children: "Save" }), _jsx(Button, { size: "small", variant: "outlined", onClick: () => { setEditingId(null); setEdit(null); }, children: "Cancel" })] })) : (_jsxs(Stack, { direction: "row", justifyContent: "flex-end", spacing: 1, children: [_jsx(Button, { size: "small", onClick: () => startEdit(i), children: "Edit" }), _jsx(Button, { size: "small", color: "error", variant: "outlined", onClick: () => remove(i.id), children: "Delete" })] })) })] }, i.id))) })] }) })] }));
 }

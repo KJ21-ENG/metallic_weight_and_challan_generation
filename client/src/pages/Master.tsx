@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, getOptions } from '../api'
+import { Alert, Box, Button, Card, CardContent, Chip, FormControl, Grid, InputLabel, MenuItem, Select, Stack, Tab, Tabs, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Paper, Checkbox } from '@mui/material'
 
 type Item = { id: number; name: string; weight_kg?: number; role_operator?: boolean; role_helper?: boolean; address?: string | null; gstin?: string | null }
 
@@ -23,7 +24,6 @@ export function MasterPage() {
   const [roleHelp, setRoleHelp] = useState(false)
   const [address, setAddress] = useState('')
   const [gstin, setGstin] = useState('')
-
   const [editingId, setEditingId] = useState<number | null>(null)
   const [edit, setEdit] = useState<Item | null>(null)
 
@@ -79,119 +79,91 @@ export function MasterPage() {
   }
 
   return (
-    <div>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-        {masterTabs.map(t => (
-          <button key={t.key} onClick={() => setType(t.key)} style={{ padding: '6px 10px', background: type === t.key ? '#444' : '#eee', color: type === t.key ? '#fff' : '#000' }}>{t.label}</button>
-        ))}
-      </div>
+    <Stack spacing={2}>
+      <Tabs value={type} onChange={(_, v) => setType(v)}>
+        {masterTabs.map(t => <Tab key={t.key} value={t.key} label={t.label} />)}
+      </Tabs>
 
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
-        <input placeholder="Name" value={name} onChange={e => setName(e.target.value)} />
-        {isWeighted && (
-          <input placeholder="Weight (kg)" type="number" step="0.001" value={weight} onChange={e => setWeight(e.target.value)} />
-        )}
-        {isEmployees && (
-          <>
-            <label><input type="checkbox" checked={roleOp} onChange={e => setRoleOp(e.target.checked)} /> Operator</label>
-            <label><input type="checkbox" checked={roleHelp} onChange={e => setRoleHelp(e.target.checked)} /> Helper</label>
-          </>
-        )}
-        {isCustomers && (
-          <>
-            <input placeholder="Address" value={address} onChange={e => setAddress(e.target.value)} style={{ minWidth: 200 }} />
-            <input placeholder="GSTIN" value={gstin} onChange={e => setGstin(e.target.value)} />
-          </>
-        )}
-        <button onClick={add}>+ New</button>
-      </div>
+      <Card>
+        <CardContent>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} sm={3}><TextField fullWidth label="Name" value={name} onChange={e => setName(e.target.value)} /></Grid>
+            {isWeighted && <Grid item xs={12} sm={2}><TextField fullWidth label="Weight (kg)" type="number" inputProps={{ step: '0.001' }} value={weight} onChange={e => setWeight(e.target.value)} /></Grid>}
+            {isEmployees && (
+              <Grid item xs={12} sm={3}>
+                <FormControl component={Box} sx={{ display: 'flex', flexDirection: 'row', gap: 2 }}>
+                  <label><Checkbox checked={roleOp} onChange={e => setRoleOp(e.target.checked)} /> Operator</label>
+                  <label><Checkbox checked={roleHelp} onChange={e => setRoleHelp(e.target.checked)} /> Helper</label>
+                </FormControl>
+              </Grid>
+            )}
+            {isCustomers && (
+              <>
+                <Grid item xs={12} sm={4}><TextField fullWidth label="Address" value={address} onChange={e => setAddress(e.target.value)} /></Grid>
+                <Grid item xs={12} sm={2}><TextField fullWidth label="GSTIN" value={gstin} onChange={e => setGstin(e.target.value)} /></Grid>
+              </>
+            )}
+            <Grid item xs={12} sm={'auto' as any}><Button onClick={add}>+ New</Button></Grid>
+          </Grid>
+        </CardContent>
+      </Card>
 
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr>
-            <th style={{ textAlign: 'left' }}>Name</th>
-            {isWeighted && <th style={{ textAlign: 'right' }}>Weight (kg)</th>}
-            {isEmployees && <><th>Operator</th><th>Helper</th></>}
-            {isCustomers && <><th>Address</th><th>GSTIN</th></>}
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map(i => (
-            <tr key={i.id}>
-              <td>
-                {editingId === i.id ? (
-                  <input value={edit?.name || ''} onChange={e => setEdit({ ...(edit as Item), name: e.target.value })} />
-                ) : (
-                  i.name
-                )}
-              </td>
-
-              {isWeighted && (
-                <td style={{ textAlign: 'right' }}>
+      <TableContainer component={Paper}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Name</TableCell>
+              {isWeighted && <TableCell align="right">Weight (kg)</TableCell>}
+              {isEmployees && <><TableCell>Operator</TableCell><TableCell>Helper</TableCell></>}
+              {isCustomers && <><TableCell>Address</TableCell><TableCell>GSTIN</TableCell></>}
+              <TableCell align="right">Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {items.map(i => (
+              <TableRow key={i.id}>
+                <TableCell>
                   {editingId === i.id ? (
-                    <input type="number" step="0.001" value={edit?.weight_kg ?? 0} onChange={e => setEdit({ ...(edit as Item), weight_kg: Number(e.target.value) })} />
-                  ) : (
-                    i.weight_kg?.toFixed?.(3)
-                  )}
-                </td>
-              )}
-
-              {isEmployees && (
-                <>
-                  <td style={{ textAlign: 'center' }}>
+                    <TextField size="small" value={edit?.name || ''} onChange={e => setEdit({ ...(edit as Item), name: e.target.value })} />
+                  ) : i.name}
+                </TableCell>
+                {isWeighted && (
+                  <TableCell align="right">
                     {editingId === i.id ? (
-                      <input type="checkbox" checked={!!edit?.role_operator} onChange={e => setEdit({ ...(edit as Item), role_operator: e.target.checked })} />
-                    ) : (
-                      i.role_operator ? 'Yes' : 'No'
-                    )}
-                  </td>
-                  <td style={{ textAlign: 'center' }}>
-                    {editingId === i.id ? (
-                      <input type="checkbox" checked={!!edit?.role_helper} onChange={e => setEdit({ ...(edit as Item), role_helper: e.target.checked })} />
-                    ) : (
-                      i.role_helper ? 'Yes' : 'No'
-                    )}
-                  </td>
-                </>
-              )}
-
-              {isCustomers && (
-                <>
-                  <td>
-                    {editingId === i.id ? (
-                      <input value={edit?.address || ''} onChange={e => setEdit({ ...(edit as Item), address: e.target.value })} />
-                    ) : (
-                      i.address || ''
-                    )}
-                  </td>
-                  <td>
-                    {editingId === i.id ? (
-                      <input value={edit?.gstin || ''} onChange={e => setEdit({ ...(edit as Item), gstin: e.target.value })} />
-                    ) : (
-                      i.gstin || ''
-                    )}
-                  </td>
-                </>
-              )}
-
-              <td style={{ display: 'flex', gap: 6 }}>
-                {editingId === i.id ? (
+                      <TextField size="small" type="number" inputProps={{ step: '0.001' }} value={edit?.weight_kg ?? 0} onChange={e => setEdit({ ...(edit as Item), weight_kg: Number(e.target.value) })} />
+                    ) : (i.weight_kg?.toFixed?.(3))}
+                  </TableCell>
+                )}
+                {isEmployees && (
                   <>
-                    <button onClick={() => saveEdit(i)}>Save</button>
-                    <button onClick={() => { setEditingId(null); setEdit(null) }}>Cancel</button>
-                  </>
-                ) : (
-                  <>
-                    <button onClick={() => startEdit(i)}>Edit</button>
-                    <button onClick={() => remove(i.id)}>Delete</button>
+                    <TableCell>{editingId === i.id ? <Checkbox checked={!!edit?.role_operator} onChange={e => setEdit({ ...(edit as Item), role_operator: e.target.checked })} /> : (i.role_operator ? 'Yes' : 'No')}</TableCell>
+                    <TableCell>{editingId === i.id ? <Checkbox checked={!!edit?.role_helper} onChange={e => setEdit({ ...(edit as Item), role_helper: e.target.checked })} /> : (i.role_helper ? 'Yes' : 'No')}</TableCell>
                   </>
                 )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+                {isCustomers && (
+                  <>
+                    <TableCell>{editingId === i.id ? <TextField size="small" value={edit?.address || ''} onChange={e => setEdit({ ...(edit as Item), address: e.target.value })} /> : (i.address || '')}</TableCell>
+                    <TableCell>{editingId === i.id ? <TextField size="small" value={edit?.gstin || ''} onChange={e => setEdit({ ...(edit as Item), gstin: e.target.value })} /> : (i.gstin || '')}</TableCell>
+                  </>
+                )}
+                <TableCell align="right">
+                  {editingId === i.id ? (
+                    <Stack direction="row" justifyContent="flex-end" spacing={1}>
+                      <Button size="small" onClick={() => saveEdit(i)}>Save</Button>
+                      <Button size="small" variant="outlined" onClick={() => { setEditingId(null); setEdit(null) }}>Cancel</Button>
+                    </Stack>
+                  ) : (
+                    <Stack direction="row" justifyContent="flex-end" spacing={1}>
+                      <Button size="small" onClick={() => startEdit(i)}>Edit</Button>
+                      <Button size="small" color="error" variant="outlined" onClick={() => remove(i.id)}>Delete</Button>
+                    </Stack>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Stack>
   )
 }

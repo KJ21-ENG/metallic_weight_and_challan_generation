@@ -1,10 +1,8 @@
-import { jsxs as _jsxs, jsx as _jsx } from "react/jsx-runtime";
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
 import { api, getOptions } from '../api';
-function Label({ idx, barcode, metallic, cut, bobType, boxType, bobQty, gross, tare, net }) {
-    return (_jsxs("div", { style: { width: '125mm', height: '75mm', border: '1px solid #000', padding: '6mm', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }, children: [_jsxs("div", { children: [_jsxs("div", { style: { fontSize: 18, fontWeight: 700 }, children: ["Label #", String(idx).padStart(2, '0')] }), _jsxs("div", { children: ["Barcode: ", barcode] }), _jsxs("div", { children: ["Metallic: ", metallic, " | Cut: ", cut] }), _jsxs("div", { children: ["Bob: ", bobType, " | Box: ", boxType] }), _jsxs("div", { children: ["Qty: ", bobQty] })] }), _jsxs("div", { style: { fontSize: 14 }, children: [_jsxs("div", { children: ["Gross: ", gross.toFixed(3), " kg"] }), _jsxs("div", { children: ["Tare: ", tare.toFixed(3), " kg"] }), _jsxs("div", { children: ["Net: ", net.toFixed(3), " kg"] })] })] }));
-}
+import { Button, Card, CardContent, FormControl, Grid, InputLabel, MenuItem, Select, Stack, TextField, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Alert } from '@mui/material';
 export function ChallanPage() {
     const [date, setDate] = useState(dayjs().format('YYYY-MM-DD'));
     const [reservedChallanNo, setReservedChallanNo] = useState(null);
@@ -28,7 +26,6 @@ export function ChallanPage() {
             setEmployees(await getOptions('employees'));
             setBobTypes(await getOptions('bob_types'));
             setBoxTypes(await getOptions('box_types'));
-            // reserve a challan number for barcode labels
             try {
                 const res = await api.post('/challans/reserve-number');
                 setReservedChallanNo(res.data.challan_no);
@@ -36,21 +33,20 @@ export function ChallanPage() {
             catch { }
         })();
     }, []);
-    function weightOf(opts, id) { return opts.find(o => o.id === id)?.weight_kg || 0; }
-    function nameOf(opts, id) { return opts.find(o => o.id === id)?.name || ''; }
-    const tare = useMemo(() => {
-        const bobWt = weightOf(bobTypes, form.bob_type_id);
-        const boxWt = weightOf(boxTypes, form.box_type_id);
-        return form.bob_qty * bobWt + boxWt;
-    }, [form, bobTypes, boxTypes]);
-    const net = useMemo(() => form.gross_wt - tare, [form.gross_wt, tare]);
+    function weightOf(opts, id) { return Number(opts.find(o => Number(o.id) === Number(id))?.weight_kg ?? 0); }
+    const round3 = (n) => Math.round((Number.isFinite(n) ? n : 0) * 1000) / 1000;
+    function nameOf(opts, id) { return opts.find(o => Number(o.id) === Number(id))?.name || ''; }
+    const bobWt = useMemo(() => weightOf(bobTypes, form.bob_type_id), [JSON.stringify(bobTypes), form.bob_type_id]);
+    const boxWt = useMemo(() => weightOf(boxTypes, form.box_type_id), [JSON.stringify(boxTypes), form.box_type_id]);
+    const tare = useMemo(() => round3((Number(form.bob_qty) || 0) * bobWt + boxWt), [form.bob_qty, bobWt, boxWt]);
+    const net = useMemo(() => round3((Number(form.gross_wt) || 0) - tare), [form.gross_wt, tare]);
     function buildBarcode(idx) {
         const yy = dayjs(date).format('YY');
         const ch = reservedChallanNo != null ? String(reservedChallanNo).padStart(6, '0') : '000000';
         return `CH-${yy}-${ch}-${String(idx).padStart(2, '0')}`;
     }
     function printLabel(idx, item) {
-        const w = window.open('', '_blank', 'width=400,height=300');
+        const w = window.open('', '_blank', 'width=500,height=400');
         const metallic = nameOf(metallics, item.metallic_id);
         const cut = nameOf(cuts, item.cut_id);
         const bobType = nameOf(bobTypes, item.bob_type_id);
@@ -60,28 +56,50 @@ export function ChallanPage() {
         const tare = item.bob_qty * bobWt + boxWt;
         const net = item.gross_wt - tare;
         const barcode = buildBarcode(idx);
-        w.document.write(`<!doctype html><html><head><meta charset=\"utf-8\"/><style>
+        w.document.write(`<!doctype html><html><head><meta charset=\"utf-8\"/>
+    <script src=\"https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js\"></script>
+    <style>
       @page { size: 125mm 75mm; margin: 0; }
-      body { margin: 0; }
-      .label { width: 125mm; height: 75mm; padding: 6mm; box-sizing: border-box; font-family: system-ui, sans-serif; }
-      .row { display: flex; justify-content: space-between; }
-      .title { font-size: 18px; font-weight: 700; }
+      body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+      .label { width: 125mm; height: 75mm; padding: 8mm; box-sizing: border-box; }
+      .title { font-size: 18px; font-weight: 700; margin-bottom: 4mm; }
+      .row { display: flex; gap: 6mm; margin-bottom: 2mm; }
+      .kv { min-width: 40mm; }
+      .muted { opacity: .8 }
+      .weights { display: flex; gap: 8mm; font-size: 14px; margin-top: 4mm; }
+      .barcode { margin-top: 2mm }
     </style></head><body>
       <div class="label">
-        <div class="title">Label #${String(idx).padStart(2, '0')}</div>
-        <div>Barcode: ${barcode}</div>
-        <div>Metallic: ${metallic} | Cut: ${cut}</div>
-        <div>Bob: ${bobType} | Box: ${boxType}</div>
-        <div>Qty: ${item.bob_qty}</div>
-        <div class="row"><div>Gross: ${item.gross_wt.toFixed(3)} kg</div><div>Tare: ${tare.toFixed(3)} kg</div><div>Net: ${net.toFixed(3)} kg</div></div>
+        <div class="title">Box Label</div>
+        <svg id="barcode" class="barcode"></svg>
+        <div class="row"><div class="kv"><b>Metallic</b></div><div>${metallic}</div></div>
+        <div class="row"><div class="kv"><b>Cut</b></div><div>${cut}</div></div>
+        <div class="row"><div class="kv"><b>Bob/Box</b></div><div>${bobType} / ${boxType}</div></div>
+        <div class="row"><div class="kv"><b>Bob Qty</b></div><div>${item.bob_qty}</div></div>
+        <div class="weights">
+          <div>Gross: <b>${item.gross_wt.toFixed(3)}</b> kg</div>
+          <div>Tare: <b>${tare.toFixed(3)}</b> kg</div>
+          <div>Net: <b>${net.toFixed(3)}</b> kg</div>
+        </div>
+        <div class="muted" style="margin-top:4mm">Auto-printed on add</div>
       </div>
-      <script>window.onload = () => { window.print(); setTimeout(() => window.close(), 200); }<\/script>
+      <script>
+        window.onload = function(){
+          try { JsBarcode('#barcode', '${barcode}', {format: 'code128', width: 2, height: 60, displayValue: true, fontSize: 12}); } catch(e) {}
+          window.print(); setTimeout(() => window.close(), 250);
+        }
+      <\/script>
     </body></html>`);
         w.document.close();
     }
     function addToBasket() {
         setBasket([...basket, form]);
         printLabel(basket.length + 1, form);
+    }
+    function removeFromBasket(index) {
+        const next = [...basket];
+        next.splice(index, 1);
+        setBasket(next);
     }
     async function generateChallan() {
         if (!customerId || !shiftId || basket.length === 0)
@@ -90,16 +108,16 @@ export function ChallanPage() {
         if (reservedChallanNo != null)
             payload.challan_no = reservedChallanNo;
         const res = await api.post('/challans', payload);
-        const pdfPath = res.data.pdf_path;
-        window.open(`/files/${pdfPath}`, '_blank');
+        const id = res.data.challan.id;
+        window.open(`/api/challans/${id}/print`, '_blank');
         setBasket([]);
     }
     const disableWeights = true;
-    return (_jsxs("div", { children: [_jsxs("div", { style: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8 }, children: [_jsxs("label", { children: ["Date", _jsx("input", { type: "date", value: date, onChange: e => setDate(e.target.value) })] }), _jsxs("label", { children: ["Customer", _jsxs("select", { value: customerId, onChange: e => setCustomerId(Number(e.target.value)), children: [_jsx("option", { value: "", children: "Select" }), customers.map(c => _jsx("option", { value: c.id, children: c.name }, c.id))] })] }), _jsxs("label", { children: ["Shift", _jsxs("select", { value: shiftId, onChange: e => setShiftId(Number(e.target.value)), children: [_jsx("option", { value: "", children: "Select" }), shifts.map(s => _jsx("option", { value: s.id, children: s.name }, s.id))] })] })] }), _jsx("hr", { style: { margin: '12px 0' } }), _jsxs("div", { style: { display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 8, alignItems: 'end' }, children: [_jsxs("label", { children: ["Metallic", _jsxs("select", { value: form.metallic_id, onChange: e => setForm({ ...form, metallic_id: Number(e.target.value) }), children: [_jsx("option", { value: 0, children: "Select" }), metallics.map(m => _jsx("option", { value: m.id, children: m.name }, m.id))] })] }), _jsxs("label", { children: ["Cut", _jsxs("select", { value: form.cut_id, onChange: e => setForm({ ...form, cut_id: Number(e.target.value) }), children: [_jsx("option", { value: 0, children: "Select" }), cuts.map(m => _jsx("option", { value: m.id, children: m.name }, m.id))] })] }), _jsxs("label", { children: ["Operator", _jsxs("select", { value: form.operator_id, onChange: e => setForm({ ...form, operator_id: Number(e.target.value) }), children: [_jsx("option", { value: 0, children: "Select" }), employees.filter(e => e.role_operator).map(m => _jsx("option", { value: m.id, children: m.name }, m.id))] })] }), _jsxs("label", { children: ["Helper", _jsxs("select", { value: form.helper_id ?? '', onChange: e => setForm({ ...form, helper_id: e.target.value ? Number(e.target.value) : null }), children: [_jsx("option", { value: "", children: "None" }), employees.filter(e => e.role_helper).map(m => _jsx("option", { value: m.id, children: m.name }, m.id))] })] }), _jsxs("label", { children: ["Bob Type", _jsxs("select", { value: form.bob_type_id, onChange: e => setForm({ ...form, bob_type_id: Number(e.target.value) }), children: [_jsx("option", { value: 0, children: "Select" }), bobTypes.map(m => _jsx("option", { value: m.id, children: m.name }, m.id))] })] }), _jsxs("label", { children: ["Box Type", _jsxs("select", { value: form.box_type_id, onChange: e => setForm({ ...form, box_type_id: Number(e.target.value) }), children: [_jsx("option", { value: 0, children: "Select" }), boxTypes.map(m => _jsx("option", { value: m.id, children: m.name }, m.id))] })] }), _jsxs("label", { children: ["Bob QTY", _jsx("input", { type: "number", value: form.bob_qty, onChange: e => setForm({ ...form, bob_qty: Number(e.target.value) }) })] }), _jsxs("label", { children: ["Gross WT (kg)", _jsx("input", { type: "number", step: "0.001", value: form.gross_wt, onChange: e => setForm({ ...form, gross_wt: Number(e.target.value) }) })] }), _jsxs("label", { children: ["Tare WT (kg)", _jsx("input", { type: "number", step: "0.001", value: tare.toFixed(3), readOnly: true, disabled: disableWeights })] }), _jsxs("label", { children: ["Net WT (kg)", _jsx("input", { type: "number", step: "0.001", value: net.toFixed(3), readOnly: true, disabled: disableWeights })] }), _jsx("button", { onClick: addToBasket, children: "Add" })] }), _jsxs("div", { style: { marginTop: 12 }, children: [_jsx("h4", { children: "Basket" }), _jsxs("table", { style: { width: '100%', borderCollapse: 'collapse' }, children: [_jsx("thead", { children: _jsxs("tr", { children: [_jsx("th", { children: "#" }), _jsx("th", { children: "Metallic" }), _jsx("th", { children: "Cut" }), _jsx("th", { children: "Bob" }), _jsx("th", { children: "Box" }), _jsx("th", { children: "Qty" }), _jsx("th", { children: "Gross" }), _jsx("th", { children: "Tare" }), _jsx("th", { children: "Net" })] }) }), _jsx("tbody", { children: basket.map((b, i) => {
-                                    const bobWt = weightOf(bobTypes, b.bob_type_id);
-                                    const boxWt = weightOf(boxTypes, b.box_type_id);
-                                    const tare = b.bob_qty * bobWt + boxWt;
-                                    const net = b.gross_wt - tare;
-                                    return (_jsxs("tr", { children: [_jsx("td", { children: i + 1 }), _jsx("td", { children: nameOf(metallics, b.metallic_id) }), _jsx("td", { children: nameOf(cuts, b.cut_id) }), _jsx("td", { children: nameOf(bobTypes, b.bob_type_id) }), _jsx("td", { children: nameOf(boxTypes, b.box_type_id) }), _jsx("td", { children: b.bob_qty }), _jsx("td", { children: b.gross_wt.toFixed(3) }), _jsx("td", { children: tare.toFixed(3) }), _jsx("td", { children: net.toFixed(3) })] }, i));
-                                }) })] })] }), _jsx("div", { style: { marginTop: 12 }, children: _jsx("button", { onClick: generateChallan, children: "Generate Challan" }) })] }));
+    return (_jsxs(Stack, { spacing: 2, children: [_jsx(Typography, { variant: "h5", children: "Generate Challan" }), _jsx(Card, { children: _jsx(CardContent, { children: _jsxs(Grid, { container: true, spacing: 2, children: [_jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsx(TextField, { fullWidth: true, label: "Date", type: "date", value: date, onChange: e => setDate(e.target.value), InputLabelProps: { shrink: true } }) }), _jsx(Grid, { item: true, xs: 12, sm: 5, children: _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Customer" }), _jsxs(Select, { label: "Customer", value: customerId, onChange: e => setCustomerId(Number(e.target.value)), children: [_jsx(MenuItem, { value: "", children: _jsx("em", { children: "Select" }) }), customers.map(c => _jsx(MenuItem, { value: c.id, children: c.name }, c.id))] })] }) }), _jsx(Grid, { item: true, xs: 12, sm: 4, children: _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Shift" }), _jsxs(Select, { label: "Shift", value: shiftId, onChange: e => setShiftId(Number(e.target.value)), children: [_jsx(MenuItem, { value: "", children: _jsx("em", { children: "Select" }) }), shifts.map(s => _jsx(MenuItem, { value: s.id, children: s.name }, s.id))] })] }) })] }) }) }), _jsx(Card, { children: _jsxs(CardContent, { children: [_jsxs(Grid, { container: true, spacing: 2, children: [_jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Metallic" }), _jsxs(Select, { label: "Metallic", value: form.metallic_id, onChange: e => setForm({ ...form, metallic_id: Number(e.target.value) }), children: [_jsx(MenuItem, { value: 0, children: _jsx("em", { children: "Select" }) }), metallics.map(m => _jsx(MenuItem, { value: m.id, children: m.name }, m.id))] })] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Cut" }), _jsxs(Select, { label: "Cut", value: form.cut_id, onChange: e => setForm({ ...form, cut_id: Number(e.target.value) }), children: [_jsx(MenuItem, { value: 0, children: _jsx("em", { children: "Select" }) }), cuts.map(m => _jsx(MenuItem, { value: m.id, children: m.name }, m.id))] })] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Operator" }), _jsxs(Select, { label: "Operator", value: form.operator_id, onChange: e => setForm({ ...form, operator_id: Number(e.target.value) }), children: [_jsx(MenuItem, { value: 0, children: _jsx("em", { children: "Select" }) }), employees.filter(e => e.role_operator).map(m => _jsx(MenuItem, { value: m.id, children: m.name }, m.id))] })] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Helper" }), _jsxs(Select, { label: "Helper", value: form.helper_id ?? '', onChange: e => setForm({ ...form, helper_id: e.target.value ? Number(e.target.value) : null }), children: [_jsx(MenuItem, { value: "", children: _jsx("em", { children: "None" }) }), employees.filter(e => e.role_helper).map(m => _jsx(MenuItem, { value: m.id, children: m.name }, m.id))] })] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Bob Type" }), _jsxs(Select, { label: "Bob Type", value: form.bob_type_id, onChange: e => setForm({ ...form, bob_type_id: Number(e.target.value) }), children: [_jsx(MenuItem, { value: 0, children: _jsx("em", { children: "Select" }) }), bobTypes.map(m => _jsxs(MenuItem, { value: m.id, children: [m.name, " ", _jsx(Chip, { size: "small", label: `${Number(m.weight_kg ?? 0).toFixed(3)} kg`, sx: { ml: 1 } })] }, m.id))] })] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Box Type" }), _jsxs(Select, { label: "Box Type", value: form.box_type_id, onChange: e => setForm({ ...form, box_type_id: Number(e.target.value) }), children: [_jsx(MenuItem, { value: 0, children: _jsx("em", { children: "Select" }) }), boxTypes.map(m => _jsxs(MenuItem, { value: m.id, children: [m.name, " ", _jsx(Chip, { size: "small", label: `${Number(m.weight_kg ?? 0).toFixed(3)} kg`, sx: { ml: 1 } })] }, m.id))] })] }) }), _jsx(Grid, { item: true, xs: 12, sm: 2, children: _jsx(TextField, { fullWidth: true, type: "number", label: "Bob Qty", value: form.bob_qty || '', onChange: e => setForm({ ...form, bob_qty: parseInt(e.target.value || '0', 10) }) }) }), _jsx(Grid, { item: true, xs: 12, sm: 2, children: _jsx(TextField, { fullWidth: true, type: "number", inputProps: { step: '0.001' }, label: "Gross (kg)", value: form.gross_wt || '', onChange: e => setForm({ ...form, gross_wt: parseFloat(e.target.value || '0') }) }) }), _jsx(Grid, { item: true, xs: 12, sm: 1, children: _jsx(TextField, { fullWidth: true, type: "text", inputProps: { readOnly: true }, label: "Tare (kg)", value: tare.toFixed(3) }) }), _jsx(Grid, { item: true, xs: 12, sm: 1, children: _jsx(TextField, { fullWidth: true, type: "text", inputProps: { readOnly: true }, label: "Net (kg)", value: net.toFixed(3) }) }), _jsx(Grid, { item: true, xs: 12, sm: 2, children: _jsx(Button, { fullWidth: true, onClick: addToBasket, children: "Add & Print Label" }) })] }), _jsxs(Alert, { severity: "info", sx: { mt: 2 }, children: ["Barcode prefix: ", reservedChallanNo ? `CH-${dayjs(date).format('YY')}-${String(reservedChallanNo).padStart(6, '0')}-XX` : 'reserving…'] })] }) }), _jsx(Card, { children: _jsxs(CardContent, { children: [_jsx(Typography, { variant: "h6", gutterBottom: true, children: "Basket" }), _jsx(TableContainer, { component: Paper, children: _jsxs(Table, { size: "small", children: [_jsx(TableHead, { children: _jsxs(TableRow, { children: [_jsx(TableCell, { children: "#" }), _jsx(TableCell, { children: "Metallic" }), _jsx(TableCell, { children: "Cut" }), _jsx(TableCell, { children: "Bob" }), _jsx(TableCell, { children: "Box" }), _jsx(TableCell, { align: "right", children: "Qty" }), _jsx(TableCell, { align: "right", children: "Gross" }), _jsx(TableCell, { align: "right", children: "Tare" }), _jsx(TableCell, { align: "right", children: "Net" }), _jsx(TableCell, { align: "right" })] }) }), _jsx(TableBody, { children: basket.map((b, i) => {
+                                            const bobWt = weightOf(bobTypes, b.bob_type_id);
+                                            const boxWt = weightOf(boxTypes, b.box_type_id);
+                                            const t = round3((Number(b.bob_qty) || 0) * bobWt + boxWt);
+                                            const n = round3((Number(b.gross_wt) || 0) - t);
+                                            return (_jsxs(TableRow, { children: [_jsx(TableCell, { children: i + 1 }), _jsx(TableCell, { children: nameOf(metallics, b.metallic_id) }), _jsx(TableCell, { children: nameOf(cuts, b.cut_id) }), _jsx(TableCell, { children: nameOf(bobTypes, b.bob_type_id) }), _jsx(TableCell, { children: nameOf(boxTypes, b.box_type_id) }), _jsx(TableCell, { align: "right", children: b.bob_qty }), _jsx(TableCell, { align: "right", children: b.gross_wt.toFixed(3) }), _jsx(TableCell, { align: "right", children: t.toFixed(3) }), _jsx(TableCell, { align: "right", children: n.toFixed(3) }), _jsx(TableCell, { align: "right", children: _jsx(Button, { size: "small", color: "error", variant: "outlined", onClick: () => removeFromBasket(i), children: "Remove" }) })] }, i));
+                                        }) })] }) }), _jsx(Stack, { direction: "row", justifyContent: "flex-end", sx: { mt: 2 }, children: _jsx(Button, { size: "large", onClick: generateChallan, disabled: !customerId || !shiftId || basket.length === 0, children: "Generate Challan & Print" }) })] }) })] }));
 }

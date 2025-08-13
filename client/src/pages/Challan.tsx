@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import dayjs from 'dayjs'
 import { api, getOptions } from '../api'
+import { Box, Button, Card, CardContent, Divider, FormControl, Grid, InputLabel, MenuItem, Select, Stack, TextField, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Alert } from '@mui/material'
 
 type Option = { id: number; name: string; weight_kg?: number; role_operator?: boolean; role_helper?: boolean }
 
@@ -15,28 +16,10 @@ type BasketItem = {
   gross_wt: number
 }
 
-function Label({ idx, barcode, metallic, cut, bobType, boxType, bobQty, gross, tare, net }: any) {
-  return (
-    <div style={{ width: '125mm', height: '75mm', border: '1px solid #000', padding: '6mm', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-      <div>
-        <div style={{ fontSize: 18, fontWeight: 700 }}>Label #{String(idx).padStart(2, '0')}</div>
-        <div>Barcode: {barcode}</div>
-        <div>Metallic: {metallic} | Cut: {cut}</div>
-        <div>Bob: {bobType} | Box: {boxType}</div>
-        <div>Qty: {bobQty}</div>
-      </div>
-      <div style={{ fontSize: 14 }}>
-        <div>Gross: {gross.toFixed(3)} kg</div>
-        <div>Tare: {tare.toFixed(3)} kg</div>
-        <div>Net: {net.toFixed(3)} kg</div>
-      </div>
-    </div>
-  )
-}
-
 export function ChallanPage() {
   const [date, setDate] = useState(dayjs().format('YYYY-MM-DD'))
   const [reservedChallanNo, setReservedChallanNo] = useState<number | null>(null)
+
   const [customers, setCustomers] = useState<Option[]>([])
   const [shifts, setShifts] = useState<Option[]>([])
   const [metallics, setMetallics] = useState<Option[]>([])
@@ -59,23 +42,20 @@ export function ChallanPage() {
     setEmployees(await getOptions('employees'))
     setBobTypes(await getOptions('bob_types'))
     setBoxTypes(await getOptions('box_types'))
-    // reserve a challan number for barcode labels
     try {
       const res = await api.post('/challans/reserve-number')
       setReservedChallanNo(res.data.challan_no)
     } catch {}
   })() }, [])
 
-  function weightOf(opts: Option[], id: number) { return opts.find(o => o.id === id)?.weight_kg || 0 }
-  function nameOf(opts: Option[], id: number) { return opts.find(o => o.id === id)?.name || '' }
+  function weightOf(opts: Option[], id: number) { return Number(opts.find(o => Number(o.id) === Number(id))?.weight_kg ?? 0) }
+  const round3 = (n: number) => Math.round((Number.isFinite(n) ? n : 0) * 1000) / 1000
+  function nameOf(opts: Option[], id: number) { return opts.find(o => Number(o.id) === Number(id))?.name || '' }
 
-  const tare = useMemo(() => {
-    const bobWt = weightOf(bobTypes, form.bob_type_id)
-    const boxWt = weightOf(boxTypes, form.box_type_id)
-    return form.bob_qty * bobWt + boxWt
-  }, [form, bobTypes, boxTypes])
-
-  const net = useMemo(() => form.gross_wt - tare, [form.gross_wt, tare])
+  const bobWt = useMemo(() => weightOf(bobTypes, form.bob_type_id), [JSON.stringify(bobTypes), form.bob_type_id])
+  const boxWt = useMemo(() => weightOf(boxTypes, form.box_type_id), [JSON.stringify(boxTypes), form.box_type_id])
+  const tare = useMemo(() => round3((Number(form.bob_qty) || 0) * bobWt + boxWt), [form.bob_qty, bobWt, boxWt])
+  const net = useMemo(() => round3((Number(form.gross_wt) || 0) - tare), [form.gross_wt, tare])
 
   function buildBarcode(idx: number) {
     const yy = dayjs(date).format('YY')
@@ -84,7 +64,7 @@ export function ChallanPage() {
   }
 
   function printLabel(idx: number, item: BasketItem) {
-    const w = window.open('', '_blank', 'width=400,height=300')!
+    const w = window.open('', '_blank', 'width=500,height=400')!
     const metallic = nameOf(metallics, item.metallic_id)
     const cut = nameOf(cuts, item.cut_id)
     const bobType = nameOf(bobTypes, item.bob_type_id)
@@ -95,22 +75,39 @@ export function ChallanPage() {
     const net = item.gross_wt - tare
     const barcode = buildBarcode(idx)
 
-    w.document.write(`<!doctype html><html><head><meta charset=\"utf-8\"/><style>
+    w.document.write(`<!doctype html><html><head><meta charset=\"utf-8\"/>
+    <script src=\"https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js\"></script>
+    <style>
       @page { size: 125mm 75mm; margin: 0; }
-      body { margin: 0; }
-      .label { width: 125mm; height: 75mm; padding: 6mm; box-sizing: border-box; font-family: system-ui, sans-serif; }
-      .row { display: flex; justify-content: space-between; }
-      .title { font-size: 18px; font-weight: 700; }
+      body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+      .label { width: 125mm; height: 75mm; padding: 8mm; box-sizing: border-box; }
+      .title { font-size: 18px; font-weight: 700; margin-bottom: 4mm; }
+      .row { display: flex; gap: 6mm; margin-bottom: 2mm; }
+      .kv { min-width: 40mm; }
+      .muted { opacity: .8 }
+      .weights { display: flex; gap: 8mm; font-size: 14px; margin-top: 4mm; }
+      .barcode { margin-top: 2mm }
     </style></head><body>
       <div class="label">
-        <div class="title">Label #${String(idx).padStart(2, '0')}</div>
-        <div>Barcode: ${barcode}</div>
-        <div>Metallic: ${metallic} | Cut: ${cut}</div>
-        <div>Bob: ${bobType} | Box: ${boxType}</div>
-        <div>Qty: ${item.bob_qty}</div>
-        <div class="row"><div>Gross: ${item.gross_wt.toFixed(3)} kg</div><div>Tare: ${tare.toFixed(3)} kg</div><div>Net: ${net.toFixed(3)} kg</div></div>
+        <div class="title">Box Label</div>
+        <svg id="barcode" class="barcode"></svg>
+        <div class="row"><div class="kv"><b>Metallic</b></div><div>${metallic}</div></div>
+        <div class="row"><div class="kv"><b>Cut</b></div><div>${cut}</div></div>
+        <div class="row"><div class="kv"><b>Bob/Box</b></div><div>${bobType} / ${boxType}</div></div>
+        <div class="row"><div class="kv"><b>Bob Qty</b></div><div>${item.bob_qty}</div></div>
+        <div class="weights">
+          <div>Gross: <b>${item.gross_wt.toFixed(3)}</b> kg</div>
+          <div>Tare: <b>${tare.toFixed(3)}</b> kg</div>
+          <div>Net: <b>${net.toFixed(3)}</b> kg</div>
+        </div>
+        <div class="muted" style="margin-top:4mm">Auto-printed on add</div>
       </div>
-      <script>window.onload = () => { window.print(); setTimeout(() => window.close(), 200); }<\/script>
+      <script>
+        window.onload = function(){
+          try { JsBarcode('#barcode', '${barcode}', {format: 'code128', width: 2, height: 60, displayValue: true, fontSize: 12}); } catch(e) {}
+          window.print(); setTimeout(() => window.close(), 250);
+        }
+      <\/script>
     </body></html>`)
     w.document.close()
   }
@@ -118,6 +115,12 @@ export function ChallanPage() {
   function addToBasket() {
     setBasket([...basket, form])
     printLabel(basket.length + 1, form)
+  }
+
+  function removeFromBasket(index: number) {
+    const next = [...basket]
+    next.splice(index, 1)
+    setBasket(next)
   }
 
   async function generateChallan() {
@@ -133,60 +136,154 @@ export function ChallanPage() {
   const disableWeights = true
 
   return (
-    <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8 }}>
-        <label>Date<input type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
-        <label>Customer<select value={customerId} onChange={e => setCustomerId(Number(e.target.value))}><option value="">Select</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-        <label>Shift<select value={shiftId} onChange={e => setShiftId(Number(e.target.value))}><option value="">Select</option>{shifts.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
-      </div>
-      <hr style={{ margin: '12px 0' }} />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 8, alignItems: 'end' }}>
-        <label>Metallic<select value={form.metallic_id} onChange={e => setForm({ ...form, metallic_id: Number(e.target.value) })}><option value={0}>Select</option>{metallics.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
-        <label>Cut<select value={form.cut_id} onChange={e => setForm({ ...form, cut_id: Number(e.target.value) })}><option value={0}>Select</option>{cuts.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
-        <label>Operator<select value={form.operator_id} onChange={e => setForm({ ...form, operator_id: Number(e.target.value) })}><option value={0}>Select</option>{employees.filter(e => e.role_operator).map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
-        <label>Helper<select value={form.helper_id ?? ''} onChange={e => setForm({ ...form, helper_id: e.target.value ? Number(e.target.value) : null })}><option value="">None</option>{employees.filter(e => e.role_helper).map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
-        <label>Bob Type<select value={form.bob_type_id} onChange={e => setForm({ ...form, bob_type_id: Number(e.target.value) })}><option value={0}>Select</option>{bobTypes.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
-        <label>Box Type<select value={form.box_type_id} onChange={e => setForm({ ...form, box_type_id: Number(e.target.value) })}><option value={0}>Select</option>{boxTypes.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
-        <label>Bob QTY<input type="number" value={form.bob_qty} onChange={e => setForm({ ...form, bob_qty: Number(e.target.value) })} /></label>
-        <label>Gross WT (kg)<input type="number" step="0.001" value={form.gross_wt} onChange={e => setForm({ ...form, gross_wt: Number(e.target.value) })} /></label>
-        <label>Tare WT (kg)<input type="number" step="0.001" value={tare.toFixed(3)} readOnly disabled={disableWeights} /></label>
-        <label>Net WT (kg)<input type="number" step="0.001" value={net.toFixed(3)} readOnly disabled={disableWeights} /></label>
-        <button onClick={addToBasket}>Add</button>
-      </div>
+    <Stack spacing={2}>
+      <Typography variant="h5">Generate Challan</Typography>
 
-      <div style={{ marginTop: 12 }}>
-        <h4>Basket</h4>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr><th>#</th><th>Metallic</th><th>Cut</th><th>Bob</th><th>Box</th><th>Qty</th><th>Gross</th><th>Tare</th><th>Net</th></tr>
-          </thead>
-          <tbody>
-            {basket.map((b, i) => {
-              const bobWt = weightOf(bobTypes, b.bob_type_id)
-              const boxWt = weightOf(boxTypes, b.box_type_id)
-              const tare = b.bob_qty * bobWt + boxWt
-              const net = b.gross_wt - tare
-              return (
-                <tr key={i}>
-                  <td>{i+1}</td>
-                  <td>{nameOf(metallics, b.metallic_id)}</td>
-                  <td>{nameOf(cuts, b.cut_id)}</td>
-                  <td>{nameOf(bobTypes, b.bob_type_id)}</td>
-                  <td>{nameOf(boxTypes, b.box_type_id)}</td>
-                  <td>{b.bob_qty}</td>
-                  <td>{b.gross_wt.toFixed(3)}</td>
-                  <td>{tare.toFixed(3)}</td>
-                  <td>{net.toFixed(3)}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
+      <Card>
+        <CardContent>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={3}><TextField fullWidth label="Date" type="date" value={date} onChange={e => setDate(e.target.value)} InputLabelProps={{ shrink: true }} /></Grid>
+            <Grid item xs={12} sm={5}>
+              <FormControl fullWidth>
+                <InputLabel>Customer</InputLabel>
+                <Select label="Customer" value={customerId} onChange={e => setCustomerId(Number(e.target.value))}>
+                  <MenuItem value=""><em>Select</em></MenuItem>
+                  {customers.map(c => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <FormControl fullWidth>
+                <InputLabel>Shift</InputLabel>
+                <Select label="Shift" value={shiftId} onChange={e => setShiftId(Number(e.target.value))}>
+                  <MenuItem value=""><em>Select</em></MenuItem>
+                  {shifts.map(s => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
 
-      <div style={{ marginTop: 12 }}>
-        <button onClick={generateChallan}>Generate Challan</button>
-      </div>
-    </div>
+      <Card>
+        <CardContent>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={3}>
+              <FormControl fullWidth>
+                <InputLabel>Metallic</InputLabel>
+                <Select label="Metallic" value={form.metallic_id} onChange={e => setForm({ ...form, metallic_id: Number(e.target.value) })}>
+                  <MenuItem value={0}><em>Select</em></MenuItem>
+                  {metallics.map(m => <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={3}>
+              <FormControl fullWidth>
+                <InputLabel>Cut</InputLabel>
+                <Select label="Cut" value={form.cut_id} onChange={e => setForm({ ...form, cut_id: Number(e.target.value) })}>
+                  <MenuItem value={0}><em>Select</em></MenuItem>
+                  {cuts.map(m => <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={3}>
+              <FormControl fullWidth>
+                <InputLabel>Operator</InputLabel>
+                <Select label="Operator" value={form.operator_id} onChange={e => setForm({ ...form, operator_id: Number(e.target.value) })}>
+                  <MenuItem value={0}><em>Select</em></MenuItem>
+                  {employees.filter(e => e.role_operator).map(m => <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={3}>
+              <FormControl fullWidth>
+                <InputLabel>Helper</InputLabel>
+                <Select label="Helper" value={form.helper_id ?? ''} onChange={e => setForm({ ...form, helper_id: e.target.value ? Number(e.target.value) : null })}>
+                  <MenuItem value=""><em>None</em></MenuItem>
+                  {employees.filter(e => e.role_helper).map(m => <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={12} sm={3}>
+              <FormControl fullWidth>
+                <InputLabel>Bob Type</InputLabel>
+                <Select label="Bob Type" value={form.bob_type_id} onChange={e => setForm({ ...form, bob_type_id: Number(e.target.value) })}>
+                  <MenuItem value={0}><em>Select</em></MenuItem>
+                  {bobTypes.map(m => <MenuItem key={m.id} value={m.id}>{m.name} <Chip size="small" label={`${Number(m.weight_kg ?? 0).toFixed(3)} kg`} sx={{ ml: 1 }} /></MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={3}>
+              <FormControl fullWidth>
+                <InputLabel>Box Type</InputLabel>
+                <Select label="Box Type" value={form.box_type_id} onChange={e => setForm({ ...form, box_type_id: Number(e.target.value) })}>
+                  <MenuItem value={0}><em>Select</em></MenuItem>
+                  {boxTypes.map(m => <MenuItem key={m.id} value={m.id}>{m.name} <Chip size="small" label={`${Number(m.weight_kg ?? 0).toFixed(3)} kg`} sx={{ ml: 1 }} /></MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={2}><TextField fullWidth type="number" label="Bob Qty" value={form.bob_qty || ''} onChange={e => setForm({ ...form, bob_qty: parseInt(e.target.value || '0', 10) })} /></Grid>
+            <Grid item xs={12} sm={2}><TextField fullWidth type="number" inputProps={{ step: '0.001' }} label="Gross (kg)" value={form.gross_wt || ''} onChange={e => setForm({ ...form, gross_wt: parseFloat(e.target.value || '0') })} /></Grid>
+            <Grid item xs={12} sm={1}><TextField fullWidth type="text" inputProps={{ readOnly: true }} label="Tare (kg)" value={tare.toFixed(3)} /></Grid>
+            <Grid item xs={12} sm={1}><TextField fullWidth type="text" inputProps={{ readOnly: true }} label="Net (kg)" value={net.toFixed(3)} /></Grid>
+            <Grid item xs={12} sm={2}><Button fullWidth onClick={addToBasket}>Add & Print Label</Button></Grid>
+          </Grid>
+          <Alert severity="info" sx={{ mt: 2 }}>Barcode prefix: {reservedChallanNo ? `CH-${dayjs(date).format('YY')}-${String(reservedChallanNo).padStart(6,'0')}-XX` : 'reserving…'}</Alert>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>Basket</Typography>
+          <TableContainer component={Paper}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>#</TableCell>
+                  <TableCell>Metallic</TableCell>
+                  <TableCell>Cut</TableCell>
+                  <TableCell>Bob</TableCell>
+                  <TableCell>Box</TableCell>
+                  <TableCell align="right">Qty</TableCell>
+                  <TableCell align="right">Gross</TableCell>
+                  <TableCell align="right">Tare</TableCell>
+                  <TableCell align="right">Net</TableCell>
+                  <TableCell align="right"></TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {basket.map((b, i) => {
+                  const bobWt = weightOf(bobTypes, b.bob_type_id)
+                  const boxWt = weightOf(boxTypes, b.box_type_id)
+                  const t = round3((Number(b.bob_qty)||0) * bobWt + boxWt)
+                  const n = round3((Number(b.gross_wt)||0) - t)
+                  return (
+                    <TableRow key={i}>
+                      <TableCell>{i+1}</TableCell>
+                      <TableCell>{nameOf(metallics, b.metallic_id)}</TableCell>
+                      <TableCell>{nameOf(cuts, b.cut_id)}</TableCell>
+                      <TableCell>{nameOf(bobTypes, b.bob_type_id)}</TableCell>
+                      <TableCell>{nameOf(boxTypes, b.box_type_id)}</TableCell>
+                      <TableCell align="right">{b.bob_qty}</TableCell>
+                      <TableCell align="right">{b.gross_wt.toFixed(3)}</TableCell>
+                      <TableCell align="right">{t.toFixed(3)}</TableCell>
+                      <TableCell align="right">{n.toFixed(3)}</TableCell>
+                  <TableCell align="right">
+                    <Button size="small" color="error" variant="outlined" onClick={() => removeFromBasket(i)}>Remove</Button>
+                  </TableCell>
+                </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+
+          <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2 }}>
+            <Button size="large" onClick={generateChallan} disabled={!customerId || !shiftId || basket.length===0}>Generate Challan & Print</Button>
+          </Stack>
+        </CardContent>
+      </Card>
+    </Stack>
   )
 }

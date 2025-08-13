@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/api.ts","./src/main.tsx","./src/pages/challan.tsx","./src/pages/management.tsx","./src/pages/master.tsx","./src/pages/reports.tsx"],"version":"5.9.2"}
+{"root":["./src/app.tsx","./src/api.ts","./src/main.tsx","./src/theme.tsx","./src/components/layout.tsx","./src/pages/challan.tsx","./src/pages/management.tsx","./src/pages/master.tsx","./src/pages/reports.tsx"],"version":"5.9.2"}
