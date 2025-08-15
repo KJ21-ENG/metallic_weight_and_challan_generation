@@ -16,6 +16,8 @@ masterRouter.get("/:type", async (req: Request, res: Response, next: NextFunctio
       sql = `select id, name, role_operator, role_helper, is_active, created_at, updated_at, deleted_at, delete_reason from employees where is_active = true order by name asc`;
     } else if (table === "customers") {
       sql = `select id, name, address, gstin, is_active, created_at, updated_at, deleted_at, delete_reason from customers where is_active = true order by name asc`;
+    } else if (table === "firms") {
+      sql = `select id, name, address, gstin, mobile, email, is_active, created_at, updated_at, deleted_at, delete_reason from firms where is_active = true order by name asc`;
     }
     const result = await pool.query(sql);
     res.json(result.rows);
@@ -54,6 +56,22 @@ masterRouter.post("/:type", async (req: Request, res: Response, next: NextFuncti
       const result = await pool.query(
         `insert into customers (name, address, gstin) values ($1, $2, $3) returning *`,
         [name.trim(), address, gstin]
+      );
+      return res.status(201).json(result.rows[0]);
+    }
+
+    if (table === "firms") {
+      const schema = z.object({
+        name: z.string().min(1),
+        address: z.string().optional().nullable(),
+        gstin: z.string().optional().nullable(),
+        mobile: z.string().optional().nullable(),
+        email: z.string().email().optional().nullable(),
+      });
+      const { name, address = null, gstin = null, mobile = null, email = null } = schema.parse(req.body);
+      const result = await pool.query(
+        `insert into firms (name, address, gstin, mobile, email) values ($1, $2, $3, $4, $5) returning *`,
+        [name.trim(), address, gstin, mobile, email]
       );
       return res.status(201).json(result.rows[0]);
     }
@@ -105,6 +123,22 @@ masterRouter.put("/:type/:id", async (req: Request, res: Response, next: NextFun
       return res.json(result.rows[0]);
     }
 
+    if (table === "firms") {
+      const schema = z.object({
+        name: z.string().min(1),
+        address: z.string().optional().nullable(),
+        gstin: z.string().optional().nullable(),
+        mobile: z.string().optional().nullable(),
+        email: z.string().email().optional().nullable(),
+      });
+      const { name, address = null, gstin = null, mobile = null, email = null } = schema.parse(req.body);
+      const result = await pool.query(
+        `update firms set name=$1, address=$2, gstin=$3, mobile=$4, email=$5, updated_at=now() where id=$6 returning *`,
+        [name.trim(), address, gstin, mobile, email, id]
+      );
+      return res.json(result.rows[0]);
+    }
+
     const schema = z.object({ name: z.string().min(1) });
     const { name } = schema.parse(req.body);
     const result = await pool.query(
@@ -149,6 +183,9 @@ function resolveTable(type: string): string {
     case "customers":
     case "customer":
       return "customers";
+    case "firms":
+    case "firm":
+      return "firms";
     case "shifts":
     case "shift":
       return "shifts";

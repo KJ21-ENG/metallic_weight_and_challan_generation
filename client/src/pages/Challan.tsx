@@ -23,6 +23,7 @@ export function ChallanPage() {
   const [date, setDate] = useState(dayjs().format('YYYY-MM-DD'))
 
   const [customers, setCustomers] = useState<Option[]>([])
+  const [firms, setFirms] = useState<any[]>([])
   const [shifts, setShifts] = useState<Option[]>([])
   const [metallics, setMetallics] = useState<Option[]>([])
   const [cuts, setCuts] = useState<Option[]>([])
@@ -32,6 +33,7 @@ export function ChallanPage() {
 
   const [customerId, setCustomerId] = useState<number | ''>('' as any)
   const [shiftId, setShiftId] = useState<number | ''>('' as any)
+  const [firmId, setFirmId] = useState<number | ''>('' as any)
 
   const [form, setForm] = useState<BasketItem>({ metallic_id: 0, cut_id: 0, operator_id: 0, helper_id: null, bob_type_id: 0, box_type_id: 0, bob_qty: 0, gross_wt: 0 })
   const [basket, setBasket] = useState<BasketItem[]>([])
@@ -46,7 +48,7 @@ export function ChallanPage() {
   const [pdfUrl, setPdfUrl] = useState<string>('')
 
   useEffect(() => { (async () => {
-    const [c, s, m, cu, e, bt, bx] = await Promise.all([
+    const [c, s, m, cu, e, bt, bx, f] = await Promise.all([
       getOptions('customers'),
       getOptions('shifts'),
       getOptions('metallics'),
@@ -54,11 +56,13 @@ export function ChallanPage() {
       getOptions('employees'),
       getOptions('bob_types'),
       getOptions('box_types'),
+      getOptions('firms'),
     ])
-    setCustomers(c); setShifts(s); setMetallics(m); setCuts(cu); setEmployees(e); setBobTypes(bt); setBoxTypes(bx)
+    setCustomers(c); setShifts(s); setMetallics(m); setCuts(cu); setEmployees(e); setBobTypes(bt); setBoxTypes(bx); setFirms(f)
     // Auto-select first customer and shift if not chosen
     if (!customerId && c.length) setCustomerId(c[0].id)
     if (!shiftId && s.length) setShiftId(s[0].id)
+    if (!firmId && f.length) setFirmId(f[0].id)
     // Do not reserve challan number on load; final challan_no will be assigned on save.
   })() }, [])
 
@@ -116,7 +120,7 @@ export function ChallanPage() {
 
   async function generateChallan() {
     if (!customerId || !shiftId || basket.length === 0) return alert('Fill header and add items')
-    const payload: any = { date, customer_id: Number(customerId), shift_id: Number(shiftId), items: basket }
+    const payload: any = { date, customer_id: Number(customerId), shift_id: Number(shiftId), firm_id: firmId ? Number(firmId) : undefined, items: basket }
     const res = await api.post('/challans', payload)
     const id = res.data.challan.id as number
     setPdfUrl(`/api/challans/${id}/print`)
@@ -134,7 +138,7 @@ export function ChallanPage() {
         <CardContent>
           <Grid container spacing={2}>
             <Grid item xs={12} sm={3}><TextField fullWidth label="Date" type="date" value={date} onChange={e => setDate(e.target.value)} InputLabelProps={{ shrink: true }} /></Grid>
-            <Grid item xs={12} sm={5}>
+            <Grid item xs={12} sm={3}>
               <FormControl fullWidth>
                 <InputLabel>Customer</InputLabel>
                 <Select label="Customer" value={customerId} onChange={e => setCustomerId(Number(e.target.value))}>
@@ -143,12 +147,21 @@ export function ChallanPage() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid item xs={12} sm={3}>
               <FormControl fullWidth>
                 <InputLabel>Shift</InputLabel>
                 <Select label="Shift" value={shiftId} onChange={e => setShiftId(Number(e.target.value))}>
                   <MenuItem value=""><em>Select</em></MenuItem>
                   {shifts.map(s => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={3}>
+              <FormControl fullWidth>
+                <InputLabel>Firm</InputLabel>
+                <Select label="Firm" value={firmId} onChange={e => setFirmId(Number(e.target.value))}>
+                  <MenuItem value=""><em>Select</em></MenuItem>
+                  {firms.map((f: any) => <MenuItem key={f.id} value={f.id}>{f.name}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>

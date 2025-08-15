@@ -12,6 +12,7 @@ const masterTabs = [
   { key: 'box_types', label: 'Box Type' },
   { key: 'customers', label: 'Customers' },
   { key: 'shifts', label: 'Shifts' },
+  { key: 'firms', label: 'Firm' },
 ]
 
 export function MasterPage() {
@@ -24,17 +25,20 @@ export function MasterPage() {
   const [roleHelp, setRoleHelp] = useState(false)
   const [address, setAddress] = useState('')
   const [gstin, setGstin] = useState('')
+  const [mobile, setMobile] = useState('')
+  const [email, setEmail] = useState('')
   const [editingId, setEditingId] = useState<number | null>(null)
   const [edit, setEdit] = useState<Item | null>(null)
 
   const isWeighted = type === 'bob_types' || type === 'box_types'
   const isEmployees = type === 'employees'
   const isCustomers = type === 'customers'
+  const isFirms = type === 'firms'
 
   useEffect(() => { load(); resetForm() }, [type])
 
   function resetForm() {
-    setName(''); setWeight(''); setRoleOp(false); setRoleHelp(false); setAddress(''); setGstin('')
+    setName(''); setWeight(''); setRoleOp(false); setRoleHelp(false); setAddress(''); setGstin(''); setMobile(''); setEmail('')
     setEditingId(null); setEdit(null)
   }
 
@@ -49,6 +53,12 @@ export function MasterPage() {
     if (isWeighted) body.weight_kg = Number(weight || 0)
     if (isEmployees) { body.role_operator = roleOp; body.role_helper = roleHelp }
     if (isCustomers) { body.address = address || null; body.gstin = gstin || null }
+    if (isFirms) {
+      if (address) body.address = address
+      if (gstin) body.gstin = gstin
+      if (mobile) body.mobile = mobile
+      if (email) body.email = email
+    }
     const res = await api.post(`/master/${type}`, body)
     resetForm()
     setItems([...items, res.data])
@@ -65,6 +75,13 @@ export function MasterPage() {
     if (isWeighted) { body.name = edit.name; body.weight_kg = Number(edit.weight_kg || 0) }
     else if (isEmployees) { body.name = edit.name; body.role_operator = !!edit.role_operator; body.role_helper = !!edit.role_helper }
     else if (isCustomers) { body.name = edit.name; body.address = edit.address || null; body.gstin = edit.gstin || null }
+    else if (isFirms) {
+      body.name = edit.name
+      if ((edit as any).address) (body as any).address = (edit as any).address
+      if ((edit as any).gstin) (body as any).gstin = (edit as any).gstin
+      if ((edit as any).mobile) (body as any).mobile = (edit as any).mobile
+      if ((edit as any).email) (body as any).email = (edit as any).email
+    }
     else { body.name = edit.name }
     const res = await api.put(`/master/${type}/${i.id}`, body)
     const updated = res.data
@@ -97,10 +114,11 @@ export function MasterPage() {
                 </FormControl>
               </Grid>
             )}
-            {isCustomers && (
+            {(isCustomers || isFirms) && (
               <>
                 <Grid item xs={12} sm={4}><TextField fullWidth label="Address" value={address} onChange={e => setAddress(e.target.value)} /></Grid>
                 <Grid item xs={12} sm={2}><TextField fullWidth label="GSTIN" value={gstin} onChange={e => setGstin(e.target.value)} /></Grid>
+                {isFirms && <><Grid item xs={12} sm={2}><TextField fullWidth label="Mobile" value={mobile} onChange={e => setMobile(e.target.value)} /></Grid><Grid item xs={12} sm={2}><TextField fullWidth label="Email" value={email} onChange={e => setEmail(e.target.value)} /></Grid></>}
               </>
             )}
             <Grid item xs={12} sm={'auto' as any}><Button onClick={add}>+ New</Button></Grid>
@@ -116,6 +134,7 @@ export function MasterPage() {
               {isWeighted && <TableCell align="right">Weight (kg)</TableCell>}
               {isEmployees && <><TableCell>Operator</TableCell><TableCell>Helper</TableCell></>}
               {isCustomers && <><TableCell>Address</TableCell><TableCell>GSTIN</TableCell></>}
+              {isFirms && <><TableCell>Address</TableCell><TableCell>GSTIN</TableCell><TableCell>Mobile</TableCell><TableCell>Email</TableCell></>}
               <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -144,6 +163,14 @@ export function MasterPage() {
                   <>
                     <TableCell>{editingId === i.id ? <TextField size="small" value={edit?.address || ''} onChange={e => setEdit({ ...(edit as Item), address: e.target.value })} /> : (i.address || '')}</TableCell>
                     <TableCell>{editingId === i.id ? <TextField size="small" value={edit?.gstin || ''} onChange={e => setEdit({ ...(edit as Item), gstin: e.target.value })} /> : (i.gstin || '')}</TableCell>
+                  </>
+                )}
+                {isFirms && (
+                  <>
+                    <TableCell>{editingId === i.id ? <TextField size="small" value={(edit as any)?.address || ''} onChange={e => setEdit({ ...(edit as Item), address: e.target.value })} /> : ((i as any).address || '')}</TableCell>
+                    <TableCell>{editingId === i.id ? <TextField size="small" value={(edit as any)?.gstin || ''} onChange={e => setEdit({ ...(edit as Item), gstin: (e.target as any).value })} /> : ((i as any).gstin || '')}</TableCell>
+                    <TableCell>{editingId === i.id ? <TextField size="small" value={(edit as any)?.mobile || ''} onChange={e => setEdit({ ...(edit as Item), mobile: (e.target as any).value } as any)} /> : ((i as any).mobile || '')}</TableCell>
+                    <TableCell>{editingId === i.id ? <TextField size="small" value={(edit as any)?.email || ''} onChange={e => setEdit({ ...(edit as Item), email: (e.target as any).value } as any)} /> : ((i as any).email || '')}</TableCell>
                   </>
                 )}
                 <TableCell align="right">

@@ -31,8 +31,9 @@ export async function generateChallanPdf(options: {
   customer: Customer;
   shiftName: string;
   items: ChallanItem[];
+  firm?: { id: number; name: string; address?: string | null; gstin?: string | null; mobile?: string | null; email?: string | null };
 }): Promise<{ absolutePath: string; relativePath: string }> {
-  const { challanNo, dateISO, customer, shiftName, items } = options;
+  const { challanNo, dateISO, customer, shiftName, items, firm } = options;
 
   const date = dayjs(dateISO);
   const yearYY = date.format("YY");
@@ -47,64 +48,181 @@ export async function generateChallanPdf(options: {
   // Remove old if exists
   try { await fs.promises.unlink(absolutePath); } catch {}
 
-  const doc = new PDFDocument({ size: "A4", margin: 36 });
+  const doc = new PDFDocument({ 
+    size: "A4",
+    layout: "landscape",
+    margin: 28,
+    autoFirstPage: true
+  });
+  
   const writeStream = fs.createWriteStream(absolutePath);
   doc.pipe(writeStream);
 
-  // Header
-  doc.fontSize(20).text("Delivery Challan", { align: "center" });
-  doc.moveDown(0.5);
-  doc.rect(36, doc.y, doc.page.width - 72, 70).stroke();
-  const left = 44;
-  const right = doc.page.width / 2;
-  doc.fontSize(10);
-  doc.text(`Challan No: ${String(challanNo).padStart(6, "0")}`, left, doc.y + 8);
-  doc.text(`Date: ${date.format("DD/MM/YYYY")}`, left, doc.y + 22);
-  doc.text(`Shift: ${shiftName}`, left, doc.y + 36);
-  doc.text(`Customer: ${customer.name}`, right, doc.y + 8);
-  if (customer.address) doc.text(`Address: ${customer.address}`, right, doc.y + 22, { width: doc.page.width - right - 44 });
-  if (customer.gstin) doc.text(`GSTIN: ${customer.gstin}`, right, doc.y + 36);
-  doc.moveDown(5);
+  // Colors
+  const borderColor = "#000000";
+  const lightText = "#111111";
+  const grayText = "#444444";
 
-  // Table
-  const startX = 36;
-  const widths = [20, 90, 70, 80, 70, 60, 60, 50, 55, 55, 55];
-  const headers = ["#", "Metallic", "Cut", "Operator", "Helper", "Bob", "Box", "Qty", "Gross", "Tare", "Net"];
-  const colXs: number[] = [];
-  let x = startX;
-  widths.forEach((w) => { colXs.push(x); x += w; });
-  colXs.push(x);
-  doc.fontSize(11);
-  headers.forEach((h, i) => { doc.text(h, colXs[i] + 2, doc.y, { width: (colXs[i+1]-colXs[i])-4 }); });
-  doc.moveTo(startX, doc.y + 12).lineTo(x, doc.y + 12).stroke();
+  // Dimensions
+  const pageLeft = doc.page.margins.left;
+  const pageRight = doc.page.width - doc.page.margins.right;
+  const gutter = 10;
+  const halfWidth = (pageRight - pageLeft - gutter) / 2;
+  const topY = 50;
 
-  let y = doc.y + 16;
-  const totals = { bobQty: 0, gross: 0, tare: 0, net: 0 };
-  items.forEach((it) => {
-    const cells = [
-      String(it.item_index).padStart(2, "0"),
-      it.metallic_name,
-      it.cut_name,
-      it.operator_name,
-      it.helper_name || "-",
-      it.bob_type_name,
-      it.box_type_name,
-      String(it.bob_qty),
-      it.gross_wt.toFixed(3),
-      it.tare_wt.toFixed(3),
-      it.net_wt.toFixed(3),
-    ];
-    cells.forEach((c, i) => { doc.text(c, colXs[i] + 2, y, { width: (colXs[i+1]-colXs[i])-4 }); });
-    y += 16;
-    totals.bobQty += it.bob_qty; totals.gross += it.gross_wt; totals.tare += it.tare_wt; totals.net += it.net_wt;
-  });
+  // Cut line in the middle
+  const midX = pageLeft + halfWidth + gutter / 2;
+  doc.save();
+  doc.lineWidth(0.5).dash(3, { space: 3 }).strokeColor("#9CA3AF");
+  doc.moveTo(midX, topY - 20).lineTo(midX, doc.page.height - 40).stroke();
+  doc.undash();
+  doc.restore();
 
-  doc.moveTo(startX, y).lineTo(x, y).stroke();
-  doc.fontSize(10).text("Totals", colXs[0] + 2, y + 4, { width: (colXs[6]-colXs[0])-4 });
-  doc.text(String(totals.bobQty), colXs[7] + 2, y + 4, { width: (colXs[8]-colXs[7])-4 });
-  doc.text(totals.gross.toFixed(3), colXs[8] + 2, y + 4, { width: (colXs[9]-colXs[8])-4 });
-  doc.text(totals.tare.toFixed(3), colXs[9] + 2, y + 4, { width: (colXs[10]-colXs[9])-4 });
-  doc.text(totals.net.toFixed(3), colXs[10] + 2, y + 4);
+  function drawHalf(originX: number, watermark: string) {
+    const boxX = originX;
+    const boxY = topY;
+    const boxW = halfWidth - gutter / 2;
+    const boxH = doc.page.height - topY - 40;
+
+    // Outer border
+    doc.rect(boxX, boxY, boxW, boxH).stroke(borderColor);
+
+    // Watermark
+    doc.save();
+    doc.opacity(0.08);
+    doc.fillColor("#000000");
+    const centerX = boxX + boxW / 2;
+    const centerY = boxY + boxH / 2;
+    doc.rotate(-30, { origin: [centerX, centerY] });
+    doc.font("Helvetica-Bold").fontSize(48).text(watermark, centerX - 120, centerY - 30, { width: 240, align: "center" });
+    doc.restore();
+
+    // Title
+    doc.font("Helvetica-Bold").fontSize(16).fillColor(lightText).text("Delivery Challan", boxX, boxY + 10, { width: boxW, align: "center" });
+
+    // Challan No and Date row
+    const infoY = boxY + 38;
+    doc.rect(boxX + 8, infoY, boxW - 16, 28).stroke(borderColor);
+    doc.font("Helvetica").fontSize(9).fillColor(grayText);
+    doc.text(`Challan No: ${String(challanNo).padStart(6, "0")}`, boxX + 16, infoY + 8);
+    doc.text(`Date: ${date.format("DD/MM/YYYY")}`, boxX + boxW / 2, infoY + 8);
+
+    // Shift & Customer small line
+    const smallY = infoY + 34;
+    doc.text(`Shift: ${shiftName}`, boxX + 16, smallY);
+    doc.text(`Customer: ${customer.name}`, boxX + boxW / 2, smallY);
+
+    // From / To boxes
+    const partyY = smallY + 10;
+    const colW = (boxW - 24) / 2;
+    doc.rect(boxX + 8, partyY, colW, 64).stroke(borderColor);
+    doc.rect(boxX + 16 + colW, partyY, colW, 64).stroke(borderColor);
+
+    doc.font("Helvetica-Bold").fontSize(9).fillColor(lightText).text("From:", boxX + 12, partyY + 6);
+    doc.font("Helvetica").fontSize(9).fillColor(lightText);
+    const firmName = firm?.name || "";
+    const firmAddr = firm?.address || "";
+    const firmGstin = firm?.gstin ? `GSTIN: ${firm.gstin}` : "";
+    const firmMobile = firm?.mobile ? `Mo: ${firm.mobile}` : "";
+    const firmEmail = firm?.email ? `Email: ${firm.email}` : "";
+    doc.text(firmName, boxX + 12, partyY + 20);
+    if (firmAddr) doc.text(firmAddr, boxX + 12, partyY + 32, { width: colW - 12 });
+    if (firmGstin) doc.text(firmGstin, boxX + 12, partyY + 50, { width: colW - 12 });
+    if (firmMobile) doc.text(firmMobile, boxX + 12, partyY + 62, { width: colW - 12 });
+    if (firmEmail) doc.text(firmEmail, boxX + 12, partyY + 74, { width: colW - 12 });
+
+    doc.font("Helvetica-Bold").fontSize(9).fillColor(lightText).text("To:", boxX + 20 + colW, partyY + 6);
+    doc.font("Helvetica").fontSize(9).fillColor(lightText);
+    doc.text(customer.name, boxX + 20 + colW, partyY + 20, { width: colW - 12 });
+    if (customer.address) doc.text(String(customer.address), boxX + 20 + colW, partyY + 32, { width: colW - 12 });
+    if (customer.gstin) doc.text(`GSTIN: ${customer.gstin}`, boxX + 20 + colW, partyY + 56, { width: colW - 12 });
+
+    // Table: two sets of 30 rows each
+    const tableY = partyY + 80;
+    const colSr = 0.07 * (boxW - 16);
+    const colDetails = 0.53 * (boxW - 16);
+    const colNet = 0.20 * (boxW - 16);
+    const colQty = 0.20 * (boxW - 16);
+
+    // Header row
+    doc.rect(boxX + 8, tableY, boxW - 16, 18).stroke(borderColor);
+    doc.font("Helvetica-Bold").fontSize(9).fillColor(lightText);
+    let cx = boxX + 8;
+    doc.text("Sr", cx, tableY + 4, { width: colSr, align: "center" }); cx += colSr;
+    doc.text("Details", cx, tableY + 4, { width: colDetails, align: "center" }); cx += colDetails;
+    doc.text("Net.WT", cx, tableY + 4, { width: colNet, align: "center" }); cx += colNet;
+    doc.text("Quantity", cx, tableY + 4, { width: colQty, align: "center" });
+
+    // Helper to draw a block of rows (30 rows capacity)
+    function drawRows(startIndex: number, yStart: number) {
+      let rowY = yStart;
+      let total = { qty: 0, net: 0 };
+      doc.font("Helvetica").fontSize(9).fillColor(lightText);
+      for (let i = 0; i < 30; i++) {
+        const idx = startIndex + i;
+        doc.rect(boxX + 8, rowY, boxW - 16, 18).stroke(borderColor);
+        let x = boxX + 8;
+        if (idx < items.length) {
+          const it = items[idx];
+          const details = `${it.metallic_name} - ${it.cut_name}`;
+          doc.text(String(idx + 1).padStart(2, "0"), x, rowY + 3, { width: colSr, align: "center" }); x += colSr;
+          doc.text(details, x + 4, rowY + 3, { width: colDetails - 8 }); x += colDetails;
+          doc.text(it.net_wt.toFixed(3), x, rowY + 3, { width: colNet, align: "center" }); x += colNet;
+          doc.text(String(it.bob_qty), x, rowY + 3, { width: colQty, align: "center" });
+          total.qty += it.bob_qty; total.net += it.net_wt;
+        } else {
+          // Empty row placeholders
+          x += colSr + colDetails + colNet + colQty;
+        }
+        rowY += 18;
+      }
+      return { y: rowY, total };
+    }
+
+    // First set of 30
+    const first = drawRows(0, tableY + 18);
+    // Totals for first block
+    doc.rect(boxX + 8, first.y, boxW - 16, 18).stroke(borderColor);
+    let tx = boxX + 8;
+    doc.font("Helvetica-Bold").text("Total", tx, first.y + 3, { width: colSr + colDetails, align: "right" });
+    tx += colSr + colDetails;
+    doc.text(first.total.net.toFixed(3) + " kg", tx, first.y + 3, { width: colNet, align: "center" });
+    tx += colNet;
+    doc.text(String(first.total.qty), tx, first.y + 3, { width: colQty, align: "center" });
+
+    // Second header
+    const header2Y = first.y + 30;
+    doc.rect(boxX + 8, header2Y, boxW - 16, 18).stroke(borderColor);
+    doc.font("Helvetica-Bold").fontSize(9).fillColor(lightText);
+    cx = boxX + 8;
+    doc.text("Sr", cx, header2Y + 4, { width: colSr, align: "center" }); cx += colSr;
+    doc.text("Details", cx, header2Y + 4, { width: colDetails, align: "center" }); cx += colDetails;
+    doc.text("Net.WT", cx, header2Y + 4, { width: colNet, align: "center" }); cx += colNet;
+    doc.text("Quantity", cx, header2Y + 4, { width: colQty, align: "center" });
+
+    // Second set of 30
+    const second = drawRows(30, header2Y + 18);
+    // Totals for second block
+    doc.rect(boxX + 8, second.y, boxW - 16, 18).stroke(borderColor);
+    tx = boxX + 8;
+    doc.font("Helvetica-Bold").text("Total", tx, second.y + 3, { width: colSr + colDetails, align: "right" });
+    tx += colSr + colDetails;
+    doc.text(second.total.net.toFixed(3) + " kg", tx, second.y + 3, { width: colNet, align: "center" });
+    tx += colNet;
+    doc.text(String(second.total.qty), tx, second.y + 3, { width: colQty, align: "center" });
+
+    // Signatures below second block
+    const sigY = second.y + 24;
+    doc.font("Helvetica").fontSize(9).fillColor(lightText);
+    doc.text("Received By (Customer Sign):", boxX + 12, sigY);
+    doc.text("Authorized Sign (Samay Jari):", boxX + boxW - 210, sigY, { width: 200, align: "right" });
+    doc.text("___________________", boxX + 12, sigY + 16);
+    doc.text("___________________", boxX + boxW - 210, sigY + 16, { width: 200, align: "right" });
+  }
+
+  // Draw left (ORIGINAL) and right (COPY)
+  drawHalf(pageLeft, "ORIGINAL");
+  drawHalf(pageLeft + halfWidth + gutter, "COPY");
 
   doc.end();
 

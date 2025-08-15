@@ -10,8 +10,17 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Static serve challan PDFs
-app.use("/files/Challans", express.static(path.join(config.projectRoot, "Challans")));
+// Static serve challan PDFs with no-cache to always fetch latest generated files
+app.use(
+  "/files/Challans",
+  (_req, res, next) => {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    next();
+  },
+  express.static(path.join(config.projectRoot, "Challans"))
+);
 
 app.use("/api/master", masterRouter);
 app.use("/api/challans", challansRouter);

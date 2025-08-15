@@ -50,7 +50,8 @@ challansRouter.get("/:id/print", async (req: Request, res: Response, next: NextF
     const id = Number(req.params.id);
     const row = (await pool.query("select pdf_path from challans where id=$1", [id])).rows[0];
     if (!row || !row.pdf_path) return res.status(404).send("PDF not found");
-    const url = `/files/${row.pdf_path}`;
+    // Cache-bust to ensure the latest regenerated PDF is fetched by the browser
+    const url = `/files/${row.pdf_path}?t=${Date.now()}`;
     const html = `<!doctype html><html><head><meta charset=\"utf-8\"/><title>Print Challan</title></head><body style=\"margin:0\">
       <iframe src=\"${url}\" style=\"position:fixed;top:0;left:0;width:100%;height:100%;border:0\"></iframe>
       <script>window.onload = function(){ setTimeout(function(){ window.focus(); window.print(); }, 500); }<\/script>
@@ -75,20 +76,21 @@ const createSchema = z.object({
   date: z.string(), // yyyy-mm-dd in IST
   customer_id: z.coerce.number(),
   shift_id: z.coerce.number(),
+  firm_id: z.coerce.number().optional(),
   items: z.array(itemSchema).min(1),
   challan_no: z.coerce.number().optional(),
 });
 
 challansRouter.post("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { date, customer_id, shift_id, items, challan_no } = createSchema.parse(req.body);
+    const { date, customer_id, shift_id, firm_id, items, challan_no } = createSchema.parse(req.body);
 
     const challanNo = typeof challan_no === "number" ? challan_no : await getNextSequence("challan_no");
 
     const result = await withTransaction(async (client) => {
       const challanInsert = await client.query(
-        `insert into challans (challan_no, date, customer_id, shift_id) values ($1, $2, $3, $4) returning *`,
-        [challanNo, date, customer_id, shift_id]
+        `insert into challans (challan_no, date, customer_id, shift_id, firm_id) values ($1, $2, $3, $4, $5) returning *`,
+        [challanNo, date, customer_id, shift_id, firm_id ?? null]
       );
       const challan = challanInsert.rows[0];
 
@@ -151,6 +153,7 @@ challansRouter.post("/", async (req: Request, res: Response, next: NextFunction)
       // PDF
       const customer = (await client.query("select id, name, address, gstin from customers where id=$1", [customer_id])).rows[0];
       const shiftName = (await client.query("select name from shifts where id=$1", [shift_id])).rows[0]?.name || "";
+      const firm = firm_id ? (await client.query("select id, name, address, gstin, mobile, email from firms where id=$1", [firm_id])).rows[0] : null;
 
       const { relativePath } = await generateChallanPdf({
         challanNo,
@@ -170,6 +173,7 @@ challansRouter.post("/", async (req: Request, res: Response, next: NextFunction)
           tare_wt: Number(r.tare_wt),
           net_wt: Number(r.net_wt),
         })),
+        firm: firm || undefined,
       });
 
       await client.query("update challans set pdf_path=$1, updated_at=now() where id=$2", [relativePath, challan.id]);

@@ -5,3 +5,4 @@ server/dist/
 client/dist/
 Challans/
 **/*.log
+temp_ref/
