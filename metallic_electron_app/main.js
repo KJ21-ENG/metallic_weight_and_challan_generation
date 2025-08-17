@@ -1,9 +1,31 @@
-const { app, BrowserWindow, shell } = require('electron');
+const { app, BrowserWindow, shell, ipcMain } = require('electron');
 const path = require('path');
 const http = require('http');
 const { spawn } = require('child_process');
 
 let mainWindow;
+
+// IPC handler for getting printers
+ipcMain.handle('get-printers', async () => {
+  try {
+    if (mainWindow && mainWindow.webContents) {
+      const printers = await mainWindow.webContents.getPrintersAsync();
+      console.log('Detected printers:', printers);
+      return printers;
+    }
+    console.log('Main window or webContents not available');
+    return [];
+  } catch (error) {
+    console.error('Error getting printers from main process:', error);
+    return [];
+  }
+});
+
+// Test IPC handler
+ipcMain.handle('test', async () => {
+  console.log('Test IPC handler called');
+  return 'IPC is working!';
+});
 
 function createWindow() {
   mainWindow = new BrowserWindow({

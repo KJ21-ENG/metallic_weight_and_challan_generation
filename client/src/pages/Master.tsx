@@ -59,32 +59,28 @@ export function MasterPage() {
   }
 
   function loadPrinterSettings() {
-    // Fetch real system printers from local print service
-    async function fetchSystemPrinters() {
-      try {
-        const response = await fetch('http://localhost:3001/printers')
-        if (response.ok) {
-          const data = await response.json()
-          if (data.printers && data.printers.length > 0) {
-            // Extract just the printer names from the response
-            const printerNames = data.printers.map((printer: any) => printer.name)
-            setAvailablePrinters(printerNames)
-          } else {
-            setAvailablePrinters([])
-          }
-        } else {
-          console.error('Failed to fetch printers:', response.status)
-          setAvailablePrinters([])
-        }
-      } catch (error) {
-        console.error('Error fetching system printers:', error)
-        // Fallback to empty list instead of mock data
-        setAvailablePrinters([])
-      }
+    console.log('Loading printer settings...');
+    console.log('window.electronAPI available:', !!window.electronAPI);
+    console.log('window.electronAPI.getPrinters available:', !!(window.electronAPI && window.electronAPI.getPrinters));
+    
+    // Get actual available printers using Electron API
+    if (window.electronAPI && window.electronAPI.getPrinters) {
+      console.log('Calling getPrinters...');
+      window.electronAPI.getPrinters().then((printers: any[]) => {
+        console.log('Received printers:', printers);
+        const printerNames = printers.map(p => p.name);
+        console.log('Printer names:', printerNames);
+        setAvailablePrinters(printerNames);
+      }).catch((err: any) => {
+        console.error('Failed to get printers:', err);
+        // Fallback to empty list if printer detection fails
+        setAvailablePrinters([]);
+      });
+    } else {
+      console.log('Electron API not available, falling back to empty list');
+      // Fallback for non-Electron environment
+      setAvailablePrinters([]);
     }
-
-    // Load real system printers
-    fetchSystemPrinters()
     
     // Load saved preferences from localStorage
     const savedLabelPrinter = localStorage.getItem('labelPrinter') || ''
@@ -153,7 +149,7 @@ export function MasterPage() {
         {masterTabs.map(t => <Tab key={t.key} value={t.key} label={t.label} />)}
       </Tabs>
 
-      {/* Printer Settings Tab */}
+            {/* Printer Settings Tab */}
       {isPrinterSettings && (
         <Card>
           <CardContent>
@@ -161,6 +157,27 @@ export function MasterPage() {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               Configure your preferred printers for labels and challans. These settings are saved locally on your computer.
             </Typography>
+            
+            {availablePrinters.length === 0 ? (
+              <Box sx={{ p: 2, bgcolor: 'warning.light', borderRadius: 1, mb: 2 }}>
+                <Typography variant="body2" color="warning.dark">
+                  No printers detected. Please ensure your system has printers installed and accessible.
+                </Typography>
+                <Button 
+                  variant="outlined" 
+                  size="small" 
+                  onClick={loadPrinterSettings}
+                  sx={{ mt: 1 }}
+                >
+                  Refresh Printers
+                </Button>
+              </Box>
+            ) : (
+              <Typography variant="body2" color="success.main" sx={{ mb: 2 }}>
+                {availablePrinters.length} printer(s) detected
+              </Typography>
+            )}
+            
             <Grid container spacing={3}>
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth>
@@ -169,6 +186,7 @@ export function MasterPage() {
                     label="Label Printer"
                     value={labelPrinter}
                     onChange={(e) => setLabelPrinter(e.target.value)}
+                    disabled={availablePrinters.length === 0}
                   >
                     <MenuItem value="">
                       <em>Select Label Printer</em>
@@ -188,6 +206,7 @@ export function MasterPage() {
                     label="Challan Printer"
                     value={challanPrinter}
                     onChange={(e) => setChallanPrinter(e.target.value)}
+                    disabled={availablePrinters.length === 0}
                   >
                     <MenuItem value="">
                       <em>Select Challan Printer</em>
@@ -203,8 +222,8 @@ export function MasterPage() {
               <Grid item xs={12}>
                 <Button 
                   variant="contained" 
-                  onClick={savePrinterSettings}
-                  disabled={!labelPrinter && !challanPrinter}
+                  onClick={savePrinterSettings} 
+                  disabled={(!labelPrinter && !challanPrinter) || availablePrinters.length === 0}
                 >
                   Save Printer Settings
                 </Button>

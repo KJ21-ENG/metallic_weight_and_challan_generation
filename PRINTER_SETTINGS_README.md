@@ -11,7 +11,7 @@ The Printer Settings feature allows users to configure their preferred printers 
   - **Label Printer**: Dropdown to select preferred printer for labels
   - **Challan Printer**: Dropdown to select preferred printer for challans
 - **Storage**: Preferences saved to localStorage (local to each PC)
-- **Mock Printers**: Currently shows a list of common printer models for demonstration
+- **Real Printer Detection**: Automatically detects available system printers using Electron API
 
 ### 2. Auto-Printing
 - **Labels**: When "Add & Print Label" is clicked, labels are automatically sent to the configured label printer
@@ -22,6 +22,8 @@ The Printer Settings feature allows users to configure their preferred printers 
 - **Printer Status**: Shows configured printers in the Challan page header
 - **Success Alerts**: Displays which printers are configured for each document type
 - **Visual Feedback**: Clear indication when printer preferences are active
+- **Printer Detection**: Shows count of detected printers and warning if none found
+- **Refresh Button**: Allows users to refresh printer detection
 
 ## Technical Implementation
 
@@ -35,16 +37,23 @@ The Printer Settings feature allows users to configure their preferred printers 
 - **No Database Changes**: Printer preferences are client-side only
 - **Existing APIs**: Uses existing challan and label generation endpoints
 
-## Current Limitations
+### Electron Integration
+- **Preload Script**: `metallic_electron_app/preload.js` exposes printer detection API
+- **Real Printer Detection**: Uses `webContents.getPrintersAsync()` to get actual system printers
+- **Type Safety**: TypeScript definitions in `client/src/types/electron.d.ts`
+
+## Current Implementation
+
+### Real Printer Detection
+- **Electron API**: Uses `webContents.getPrintersAsync()` to detect available printers
+- **No Mock Data**: Removed hardcoded printer names, now shows actual system printers
+- **Error Handling**: Graceful fallback if printer detection fails
+- **User Feedback**: Clear indication of printer detection status
 
 ### Browser Constraints
 - **Web Print API**: Not yet widely supported across browsers
-- **Printer Detection**: Cannot automatically detect available system printers
 - **Direct Printing**: Limited to browser print dialog in current implementation
-
-### Mock Implementation
-- **Printer List**: Currently shows hardcoded printer names
-- **Print Simulation**: Shows alerts instead of actual printing to specific printers
+- **Electron Required**: Full printer functionality requires running in Electron app
 
 ## Future Enhancements
 
@@ -68,9 +77,10 @@ The Printer Settings feature allows users to configure their preferred printers 
 
 ### 1. Configure Printers
 1. Go to **Master** → **Printer Settings** tab
-2. Select your preferred **Label Printer** from the dropdown
-3. Select your preferred **Challan Printer** from the dropdown
-4. Click **Save Printer Settings**
+2. The system will automatically detect available printers
+3. Select your preferred **Label Printer** from the dropdown
+4. Select your preferred **Challan Printer** from the dropdown
+5. Click **Save Printer Settings**
 
 ### 2. Use Auto-Printing
 1. **Labels**: Add items to basket → "Add & Print Label" automatically sends to configured printer
@@ -82,45 +92,40 @@ The Printer Settings feature allows users to configure their preferred printers 
 - Check printer status in the Challan page header
 - Verify localStorage contains your printer preferences
 
+### 4. Troubleshooting
+- If no printers are detected, ensure your system has printers installed
+- Use the "Refresh Printers" button to retry detection
+- Check that you're running the application in Electron (not just browser)
+
 ## File Structure
 
 ```
 client/src/
 ├── pages/
-│   ├── Master.tsx          # Added printer settings tab
+│   ├── Master.tsx          # Added printer settings tab with real detection
 │   └── Challan.tsx         # Modified to use printer preferences
 ├── utils/
-│   └── printer.ts          # New printer utility functions
-└── components/              # Existing components
+│   └── printer.ts          # Printer utility functions
+├── types/
+│   └── electron.d.ts       # TypeScript definitions for Electron API
+
+metallic_electron_app/
+├── main.js                 # Main Electron process
+└── preload.js              # Exposes printer detection API
 ```
 
-## Browser Compatibility
+## Recent Changes
 
-- **Chrome/Edge**: Full support for localStorage
-- **Firefox**: Full support for localStorage
-- **Safari**: Full support for localStorage
-- **Mobile Browsers**: Limited printer support
+### Removed Mock Data
+- Eliminated hardcoded printer names (HP LaserJet Pro M404n, Canon PIXMA TS8320, etc.)
+- Now detects actual system printers using Electron's native API
+- Provides real-time printer availability information
 
-## Security Considerations
-
-- **Local Storage**: Printer preferences are stored locally on each PC
-- **No Network**: Preferences don't leave the user's computer
-- **User Control**: Users have full control over their printer settings
-- **No Persistence**: Settings are lost if browser data is cleared
-
-## Troubleshooting
-
-### Common Issues
-1. **Settings Not Saved**: Check if localStorage is enabled in browser
-2. **Printers Not Showing**: Verify the printer settings tab is active
-3. **Auto-Print Not Working**: Confirm printer preferences are configured
-4. **Build Errors**: Ensure all Material-UI components are imported
-
-### Debug Steps
-1. Check browser console for errors
-2. Verify localStorage contains printer preferences
-3. Confirm printer settings tab is working
-4. Test with different browser/device
+### Enhanced User Experience
+- Added printer detection status indicators
+- Implemented refresh functionality for printer detection
+- Better error handling and user feedback
+- Disabled form controls when no printers are available
 
 
 
