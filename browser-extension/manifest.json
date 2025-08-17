@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Metallic Challan Print Extension",
+  "version": "1.0.0",
+  "description": "Extension for printing metallic challan labels and documents via local print service",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "http://localhost:3001/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*/*"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Metallic Challan Print"
+  }
+}
