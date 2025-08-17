@@ -1,11 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import dayjs from 'dayjs'
 import { api, getOptions } from '../api'
-import { getLabelPrinter, getChallanPrinter, printToPrinter } from '../utils/printer'
-import { Box, Button, Card, CardContent, Divider, FormControl, Grid, InputLabel, MenuItem, Select, Stack, TextField, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Alert } from '@mui/material'
-import { Modal } from '../components/Modal'
-import { LabelPreview } from '../components/LabelPreview'
-import { useReactToPrint } from 'react-to-print'
+import { Box, Button, Card, CardContent, FormControl, Grid, InputLabel, MenuItem, Select, Stack, TextField, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material'
 
 type Option = { id: number; name: string; weight_kg?: number; role_operator?: boolean; role_helper?: boolean }
 
@@ -39,15 +35,6 @@ export function ChallanPage() {
   const [form, setForm] = useState<BasketItem>({ metallic_id: 0, cut_id: 0, operator_id: 0, helper_id: null, bob_type_id: 0, box_type_id: 0, bob_qty: 0, gross_wt: 0 })
   const [basket, setBasket] = useState<BasketItem[]>([])
 
-  const [labelOpen, setLabelOpen] = useState(false)
-  const [labelData, setLabelData] = useState<any | null>(null)
-  const printRef = useRef<HTMLDivElement>(null)
-  // use imperative print method; provide content at call time per v3 API
-  const printFn = useReactToPrint({ contentRef: printRef as any } as any)
-
-  const [pdfOpen, setPdfOpen] = useState(false)
-  const [pdfUrl, setPdfUrl] = useState<string>('')
-
   useEffect(() => { (async () => {
     const [c, s, m, cu, e, bt, bx, f] = await Promise.all([
       getOptions('customers'),
@@ -76,54 +63,10 @@ export function ChallanPage() {
   const tare = useMemo(() => round3((Number(form.bob_qty) || 0) * bobWt + boxWt), [form.bob_qty, bobWt, boxWt])
   const net = useMemo(() => round3((Number(form.gross_wt) || 0) - tare), [form.gross_wt, tare])
 
-  function buildBarcode(idx: number) {
-    const yy = dayjs(date).format('YY')
-    return `CH-${yy}-000000-${String(idx).padStart(2, '0')}`
-  }
-
-  async function openLabelModal(idx: number, item: BasketItem) {
-    const metallic = nameOf(metallics, item.metallic_id)
-    const cut = nameOf(cuts, item.cut_id)
-    const bobType = nameOf(bobTypes, item.bob_type_id)
-    const boxType = nameOf(boxTypes, item.box_type_id)
-    const bobWt = weightOf(bobTypes, item.bob_type_id)
-    const boxWt = weightOf(boxTypes, item.box_type_id)
-    const tare = item.bob_qty * bobWt + boxWt
-    const net = item.gross_wt - tare
-    const barcode = buildBarcode(idx)
-    
-    const labelData = {
-      header: 'GLINTEX',
-      dateText: new Date().toLocaleString(),
-      color: metallic,
-      cut,
-      bobQty: item.bob_qty,
-      gross: item.gross_wt,
-      bobWeight: bobWt * item.bob_qty,
-      boxWeight: boxWt,
-      net,
-      operator: nameOf(employees, item.operator_id),
-      helper: item.helper_id ? nameOf(employees, item.helper_id) : '',
-      barcode,
-    }
-    
-    setLabelData(labelData)
-    setLabelOpen(true)
-    
-    // Auto-print to preferred printer if configured
-    const preferredPrinter = getLabelPrinter()
-    if (preferredPrinter) {
-      try {
-        await printToPrinter(preferredPrinter, labelData)
-      } catch (error) {
-        console.error('Failed to print to preferred printer:', error)
-      }
-    }
-  }
-
   function addToBasket() {
     setBasket([...basket, form])
-    openLabelModal(basket.length + 1, form)
+    // Reset form for next entry
+    setForm({ metallic_id: 0, cut_id: 0, operator_id: 0, helper_id: null, bob_type_id: 0, box_type_id: 0, bob_qty: 0, gross_wt: 0 })
   }
 
   function removeFromBasket(index: number) {
@@ -137,33 +80,8 @@ export function ChallanPage() {
     const payload: any = { date, customer_id: Number(customerId), shift_id: Number(shiftId), firm_id: firmId ? Number(firmId) : undefined, items: basket }
     const res = await api.post('/challans', payload)
     const id = res.data.challan.id as number
-    setPdfUrl(`/api/challans/${id}/print`)
-    setPdfOpen(true)
+    alert(`Challan generated successfully! ID: ${id}`)
     setBasket([])
-    
-    // Auto-print challan to preferred printer if configured
-    const preferredChallanPrinter = getChallanPrinter()
-    if (preferredChallanPrinter) {
-      try {
-        const challanData = {
-          challanId: id,
-          challanNo: res.data.challan.challan_no,
-          date: date,
-          customer: customers.find(c => c.id === customerId)?.name,
-          items: basket.length,
-          totalNetWeight: basket.reduce((acc, item) => {
-            const bobWt = weightOf(bobTypes, item.bob_type_id)
-            const boxWt = weightOf(boxTypes, item.box_type_id)
-            const tare = (Number(item.bob_qty) || 0) * bobWt + boxWt
-            const net = (Number(item.gross_wt) || 0) - tare
-            return acc + net
-          }, 0)
-        }
-        await printToPrinter(preferredChallanPrinter, challanData)
-      } catch (error) {
-        console.error('Failed to print challan to preferred printer:', error)
-      }
-    }
   }
 
   const disableWeights = true
@@ -172,18 +90,6 @@ export function ChallanPage() {
     <Stack spacing={2}>
       <Typography variant="h5">Generate Challan</Typography>
       
-      {/* Printer Status */}
-      {(getLabelPrinter() || getChallanPrinter()) && (
-        <Alert severity="info" icon={false}>
-          <Typography variant="body2">
-            <strong>Printer Configuration:</strong>
-            {getLabelPrinter() && ` Label: ${getLabelPrinter()}`}
-            {getChallanPrinter() && ` Challan: ${getChallanPrinter()}`}
-            {' - '}Documents will be automatically sent to configured printers
-          </Typography>
-        </Alert>
-      )}
-
       <Card>
         <CardContent>
           <Grid container spacing={2}>
@@ -236,7 +142,7 @@ export function ChallanPage() {
                 <InputLabel>Cut</InputLabel>
                 <Select label="Cut" value={form.cut_id} onChange={e => setForm({ ...form, cut_id: Number(e.target.value) })}>
                   <MenuItem value={0}><em>Select</em></MenuItem>
-                  {cuts.map(m => <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>)}
+                  {cuts.map(c => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
@@ -245,26 +151,25 @@ export function ChallanPage() {
                 <InputLabel>Operator</InputLabel>
                 <Select label="Operator" value={form.operator_id} onChange={e => setForm({ ...form, operator_id: Number(e.target.value) })}>
                   <MenuItem value={0}><em>Select</em></MenuItem>
-                  {employees.filter(e => e.role_operator).map(m => <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>)}
+                  {employees.filter(e => e.role_operator).map(e => <MenuItem key={e.id} value={e.id}>{e.name}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
             <Grid item xs={12} sm={3}>
               <FormControl fullWidth>
                 <InputLabel>Helper</InputLabel>
-                <Select label="Helper" value={form.helper_id ?? ''} onChange={e => setForm({ ...form, helper_id: e.target.value ? Number(e.target.value) : null })}>
+                <Select label="Helper" value={form.helper_id || ''} onChange={e => setForm({ ...form, helper_id: e.target.value ? Number(e.target.value) : null })}>
                   <MenuItem value=""><em>None</em></MenuItem>
-                  {employees.filter(e => e.role_helper).map(m => <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>)}
+                  {employees.filter(e => e.role_helper).map(e => <MenuItem key={e.id} value={e.id}>{e.name}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
-
             <Grid item xs={12} sm={3}>
               <FormControl fullWidth>
                 <InputLabel>Bob Type</InputLabel>
                 <Select label="Bob Type" value={form.bob_type_id} onChange={e => setForm({ ...form, bob_type_id: Number(e.target.value) })}>
                   <MenuItem value={0}><em>Select</em></MenuItem>
-                  {bobTypes.map(m => <MenuItem key={m.id} value={m.id}>{m.name} <Chip size="small" label={`${Number(m.weight_kg ?? 0).toFixed(3)} kg`} sx={{ ml: 1 }} /></MenuItem>)}
+                  {bobTypes.map(b => <MenuItem key={b.id} value={b.id}>{b.name} ({b.weight_kg} kg)</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
@@ -273,27 +178,38 @@ export function ChallanPage() {
                 <InputLabel>Box Type</InputLabel>
                 <Select label="Box Type" value={form.box_type_id} onChange={e => setForm({ ...form, box_type_id: Number(e.target.value) })}>
                   <MenuItem value={0}><em>Select</em></MenuItem>
-                  {boxTypes.map(m => <MenuItem key={m.id} value={m.id}>{m.name} <Chip size="small" label={`${Number(m.weight_kg ?? 0).toFixed(3)} kg`} sx={{ ml: 1 }} /></MenuItem>)}
+                  {boxTypes.map(b => <MenuItem key={b.id} value={b.id}>{b.name} ({b.weight_kg} kg)</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={2}><TextField fullWidth type="number" label="Bob Qty" value={form.bob_qty || ''} onChange={e => setForm({ ...form, bob_qty: parseInt(e.target.value || '0', 10) })} /></Grid>
-            <Grid item xs={12} sm={2}><TextField fullWidth type="number" inputProps={{ step: '0.001' }} label="Gross (kg)" value={form.gross_wt || ''} onChange={e => setForm({ ...form, gross_wt: parseFloat(e.target.value || '0') })} /></Grid>
-            <Grid item xs={12} sm={1}><TextField fullWidth type="text" inputProps={{ readOnly: true }} label="Tare (kg)" value={tare.toFixed(3)} /></Grid>
-            <Grid item xs={12} sm={1}><TextField fullWidth type="text" inputProps={{ readOnly: true }} label="Net (kg)" value={net.toFixed(3)} /></Grid>
-            <Grid item xs={12} sm={2}><Button fullWidth onClick={addToBasket}>Add & Print Label</Button></Grid>
+            <Grid item xs={12} sm={3}>
+              <TextField fullWidth label="Bob Qty" type="number" value={form.bob_qty} onChange={e => setForm({ ...form, bob_qty: Number(e.target.value) })} inputProps={{ min: 0 }} />
+            </Grid>
+            <Grid item xs={12} sm={3}>
+              <TextField fullWidth label="Gross Weight (kg)" type="number" value={form.gross_wt} onChange={e => setForm({ ...form, gross_wt: Number(e.target.value) })} inputProps={{ min: 0, step: 0.001 }} />
+            </Grid>
           </Grid>
-          <Alert severity="info" sx={{ mt: 2 }}>Barcode preview uses 000000 until challan is saved.</Alert>
-          {getLabelPrinter() && (
-            <Alert severity="success" sx={{ mt: 1 }}>
-              Label printer configured: <strong>{getLabelPrinter()}</strong> - Labels will be auto-printed
-            </Alert>
-          )}
-          {getChallanPrinter() && (
-            <Alert severity="success" sx={{ mt: 1 }}>
-              Challan printer configured: <strong>{getChallanPrinter()}</strong> - Challans will be auto-printed
-            </Alert>
-          )}
+
+          <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={3}>
+                <Typography variant="body2" color="textSecondary">Bob Weight: {bobWt.toFixed(3)} kg</Typography>
+              </Grid>
+              <Grid item xs={12} sm={3}>
+                <Typography variant="body2" color="textSecondary">Box Weight: {boxWt.toFixed(3)} kg</Typography>
+              </Grid>
+              <Grid item xs={12} sm={3}>
+                <Typography variant="body2" color="textSecondary">Tare Weight: {tare.toFixed(3)} kg</Typography>
+              </Grid>
+              <Grid item xs={12} sm={3}>
+                <Typography variant="body2" color="textSecondary">Net Weight: {net.toFixed(3)} kg</Typography>
+              </Grid>
+            </Grid>
+          </Box>
+
+          <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2 }}>
+            <Grid item xs={12} sm={2}><Button fullWidth onClick={addToBasket}>Add to Basket</Button></Grid>
+          </Stack>
         </CardContent>
       </Card>
 
@@ -365,29 +281,10 @@ export function ChallanPage() {
           </TableContainer>
 
           <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2 }}>
-            <Button size="large" onClick={generateChallan} disabled={!customerId || !shiftId || basket.length===0}>Generate Challan & Print</Button>
+            <Button size="large" onClick={generateChallan} disabled={!customerId || !shiftId || basket.length===0}>Generate Challan</Button>
           </Stack>
         </CardContent>
       </Card>
-
-      <Modal open={labelOpen} title="Print Label" onClose={() => setLabelOpen(false)} maxWidth="sm">
-        {labelData && (
-          <div>
-            <div ref={printRef} style={{ display: 'inline-block' }}>
-              <LabelPreview {...labelData} />
-            </div>
-            <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2 }}>
-              <Button onClick={() => printFn && printFn()}>Print</Button>
-            </Stack>
-          </div>
-        )}
-      </Modal>
-
-      <Modal open={pdfOpen} title="Challan PDF" onClose={() => setPdfOpen(false)} maxWidth="lg">
-        {pdfUrl && (
-          <iframe src={pdfUrl} style={{ width: '100%', height: '80vh', border: 0 }} />
-        )}
-      </Modal>
     </Stack>
   )
 }
