@@ -1,0 +1,51 @@
+{
+  "name": "metallic-challan-desktop",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "electron .",
+    "dev": "cross-env APP_URL=http://localhost:5173 electron .",
+    "dev:all": "concurrently -k \"npm:server\" \"npm:client\" \"npm:electron\"",
+    "electron": "cross-env APP_URL=http://localhost:5173 electron .",
+    "server": "npm --prefix ../server run dev",
+    "client": "npm --prefix ../client run dev",
+    "build:client": "npm --prefix ../client run build",
+    "build:server": "npm --prefix ../server run build",
+    "prepare:prod": "npm run build:client && npm run build:server",
+    "start:prod": "cross-env NODE_ENV=production electron .",
+    "pack": "npm run prepare:prod && electron-builder --dir",
+    "dist": "npm run prepare:prod && electron-builder"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "concurrently": "^9.2.0",
+    "cross-env": "^10.0.0",
+    "electron": "^37.3.0",
+    "electron-builder": "^26.0.12",
+    "wait-on": "^8.0.4"
+  },
+  "build": {
+    "appId": "com.metallic.challan",
+    "productName": "Metallic Challan",
+    "directories": { "output": "dist-app" },
+    "files": [
+      "**/*",
+      "!dist-app/**",
+      "!node_modules/**/.cache/**"
+    ],
+    "extraResources": [
+      { "from": "../client/dist", "to": "client-dist" },
+      { "from": "../server/dist", "to": "server-dist" },
+      { "from": "../server/node_modules", "to": "server-dist/node_modules" },
+      { "from": "../server/.env", "to": ".env" }
+    ],
+    "mac": { "target": [ { "target": "dmg", "arch": ["x64", "arm64"] } ] },
+    "win": { "target": [ { "target": "nsis", "arch": ["x64"] } ] },
+    "linux": { "target": [ "AppImage" ] }
+  }
+}

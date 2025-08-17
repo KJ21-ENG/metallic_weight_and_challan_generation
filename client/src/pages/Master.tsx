@@ -59,18 +59,32 @@ export function MasterPage() {
   }
 
   function loadPrinterSettings() {
-    // For now, we'll use a mock list since browser APIs don't directly expose printer lists
-    // In a real implementation, you might need to use a native app or Electron
-    const mockPrinters = [
-      'HP LaserJet Pro M404n',
-      'Canon PIXMA TS8320',
-      'Epson WorkForce WF-3720',
-      'Brother HL-L2350DW',
-      'Zebra ZD420',
-      'Dymo LabelWriter 450',
-      'Default Printer'
-    ]
-    setAvailablePrinters(mockPrinters)
+    // Fetch real system printers from local print service
+    async function fetchSystemPrinters() {
+      try {
+        const response = await fetch('http://localhost:3001/printers')
+        if (response.ok) {
+          const data = await response.json()
+          if (data.printers && data.printers.length > 0) {
+            // Extract just the printer names from the response
+            const printerNames = data.printers.map((printer: any) => printer.name)
+            setAvailablePrinters(printerNames)
+          } else {
+            setAvailablePrinters([])
+          }
+        } else {
+          console.error('Failed to fetch printers:', response.status)
+          setAvailablePrinters([])
+        }
+      } catch (error) {
+        console.error('Error fetching system printers:', error)
+        // Fallback to empty list instead of mock data
+        setAvailablePrinters([])
+      }
+    }
+
+    // Load real system printers
+    fetchSystemPrinters()
     
     // Load saved preferences from localStorage
     const savedLabelPrinter = localStorage.getItem('labelPrinter') || ''

@@ -7,5 +7,10 @@ Challans/
 **/*.log
 temp_ref/
 tsconfig.tsbuildinfo
-@browser-extension/
-@local-print-service/
+browser-extension/
+local-print-service/
+
+# Electron build artifacts
+metallic_electron_app/dist-app/
+metallic_electron_app/node_modules/
+metallic_electron_app/package-lock.json
