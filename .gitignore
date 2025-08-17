@@ -7,3 +7,5 @@ Challans/
 **/*.log
 temp_ref/
 tsconfig.tsbuildinfo
+@browser-extension/
+@local-print-service/
