@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, getOptions } from '../api'
-import { Alert, Box, Button, Card, CardContent, Chip, FormControl, Grid, InputLabel, MenuItem, Select, Stack, Tab, Tabs, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Paper, Checkbox } from '@mui/material'
+import { Alert, Box, Button, Card, CardContent, Chip, FormControl, Grid, InputLabel, MenuItem, Select, Stack, Tab, Tabs, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Paper, Checkbox, Typography } from '@mui/material'
 
 type Item = { id: number; name: string; weight_kg?: number; role_operator?: boolean; role_helper?: boolean; address?: string | null; gstin?: string | null }
 
@@ -13,6 +13,7 @@ const masterTabs = [
   { key: 'customers', label: 'Customers' },
   { key: 'shifts', label: 'Shifts' },
   { key: 'firms', label: 'Firm' },
+  { key: 'printer_settings', label: 'Printer Settings' },
 ]
 
 export function MasterPage() {
@@ -29,11 +30,17 @@ export function MasterPage() {
   const [email, setEmail] = useState('')
   const [editingId, setEditingId] = useState<number | null>(null)
   const [edit, setEdit] = useState<Item | null>(null)
+  
+  // Printer settings state
+  const [labelPrinter, setLabelPrinter] = useState('')
+  const [challanPrinter, setChallanPrinter] = useState('')
+  const [availablePrinters, setAvailablePrinters] = useState<string[]>([])
 
   const isWeighted = type === 'bob_types' || type === 'box_types'
   const isEmployees = type === 'employees'
   const isCustomers = type === 'customers'
   const isFirms = type === 'firms'
+  const isPrinterSettings = type === 'printer_settings'
 
   useEffect(() => { load(); resetForm() }, [type])
 
@@ -43,8 +50,39 @@ export function MasterPage() {
   }
 
   async function load() {
-    const data = await getOptions(type)
-    setItems(data)
+    if (isPrinterSettings) {
+      loadPrinterSettings()
+    } else {
+      const data = await getOptions(type)
+      setItems(data)
+    }
+  }
+
+  function loadPrinterSettings() {
+    // For now, we'll use a mock list since browser APIs don't directly expose printer lists
+    // In a real implementation, you might need to use a native app or Electron
+    const mockPrinters = [
+      'HP LaserJet Pro M404n',
+      'Canon PIXMA TS8320',
+      'Epson WorkForce WF-3720',
+      'Brother HL-L2350DW',
+      'Zebra ZD420',
+      'Dymo LabelWriter 450',
+      'Default Printer'
+    ]
+    setAvailablePrinters(mockPrinters)
+    
+    // Load saved preferences from localStorage
+    const savedLabelPrinter = localStorage.getItem('labelPrinter') || ''
+    const savedChallanPrinter = localStorage.getItem('challanPrinter') || ''
+    setLabelPrinter(savedLabelPrinter)
+    setChallanPrinter(savedChallanPrinter)
+  }
+
+  function savePrinterSettings() {
+    localStorage.setItem('labelPrinter', labelPrinter)
+    localStorage.setItem('challanPrinter', challanPrinter)
+    alert('Printer settings saved successfully!')
   }
 
   async function add() {
@@ -101,32 +139,95 @@ export function MasterPage() {
         {masterTabs.map(t => <Tab key={t.key} value={t.key} label={t.label} />)}
       </Tabs>
 
-      <Card>
-        <CardContent>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={3}><TextField fullWidth label="Name" value={name} onChange={e => setName(e.target.value)} /></Grid>
-            {isWeighted && <Grid item xs={12} sm={2}><TextField fullWidth label="Weight (kg)" type="number" inputProps={{ step: '0.001' }} value={weight} onChange={e => setWeight(e.target.value)} /></Grid>}
-            {isEmployees && (
-              <Grid item xs={12} sm={3}>
-                <FormControl component={Box} sx={{ display: 'flex', flexDirection: 'row', gap: 2 }}>
-                  <label><Checkbox checked={roleOp} onChange={e => setRoleOp(e.target.checked)} /> Operator</label>
-                  <label><Checkbox checked={roleHelp} onChange={e => setRoleHelp(e.target.checked)} /> Helper</label>
+      {/* Printer Settings Tab */}
+      {isPrinterSettings && (
+        <Card>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>Printer Configuration</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Configure your preferred printers for labels and challans. These settings are saved locally on your computer.
+            </Typography>
+            <Grid container spacing={3}>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Label Printer</InputLabel>
+                  <Select
+                    label="Label Printer"
+                    value={labelPrinter}
+                    onChange={(e) => setLabelPrinter(e.target.value)}
+                  >
+                    <MenuItem value="">
+                      <em>Select Label Printer</em>
+                    </MenuItem>
+                    {availablePrinters.map((printer) => (
+                      <MenuItem key={printer} value={printer}>
+                        {printer}
+                      </MenuItem>
+                    ))}
+                  </Select>
                 </FormControl>
               </Grid>
-            )}
-            {(isCustomers || isFirms) && (
-              <>
-                <Grid item xs={12} sm={4}><TextField fullWidth label="Address" value={address} onChange={e => setAddress(e.target.value)} /></Grid>
-                <Grid item xs={12} sm={2}><TextField fullWidth label="GSTIN" value={gstin} onChange={e => setGstin(e.target.value)} /></Grid>
-                {isFirms && <><Grid item xs={12} sm={2}><TextField fullWidth label="Mobile" value={mobile} onChange={e => setMobile(e.target.value)} /></Grid><Grid item xs={12} sm={2}><TextField fullWidth label="Email" value={email} onChange={e => setEmail(e.target.value)} /></Grid></>}
-              </>
-            )}
-            <Grid item xs={12} sm={'auto' as any}><Button onClick={add}>+ New</Button></Grid>
-          </Grid>
-        </CardContent>
-      </Card>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Challan Printer</InputLabel>
+                  <Select
+                    label="Challan Printer"
+                    value={challanPrinter}
+                    onChange={(e) => setChallanPrinter(e.target.value)}
+                  >
+                    <MenuItem value="">
+                      <em>Select Challan Printer</em>
+                    </MenuItem>
+                    {availablePrinters.map((printer) => (
+                      <MenuItem key={printer} value={printer}>
+                        {printer}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <Button 
+                  variant="contained" 
+                  onClick={savePrinterSettings}
+                  disabled={!labelPrinter && !challanPrinter}
+                >
+                  Save Printer Settings
+                </Button>
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+      )}
 
-      <TableContainer component={Paper}>
+      {!isPrinterSettings && (
+        <>
+          <Card>
+            <CardContent>
+              <Grid container spacing={2} alignItems="center">
+                <Grid item xs={12} sm={3}><TextField fullWidth label="Name" value={name} onChange={e => setName(e.target.value)} /></Grid>
+                {isWeighted && <Grid item xs={12} sm={2}><TextField fullWidth label="Weight (kg)" type="number" inputProps={{ step: '0.001' }} value={weight} onChange={e => setWeight(e.target.value)} /></Grid>}
+                {isEmployees && (
+                  <Grid item xs={12} sm={3}>
+                    <FormControl component={Box} sx={{ display: 'flex', flexDirection: 'row', gap: 2 }}>
+                      <label><Checkbox checked={roleOp} onChange={e => setRoleOp(e.target.checked)} /> Operator</label>
+                      <label><Checkbox checked={roleHelp} onChange={e => setRoleHelp(e.target.checked)} /> Helper</label>
+                    </FormControl>
+                  </Grid>
+                )}
+                {(isCustomers || isFirms) && (
+                  <>
+                    <Grid item xs={12} sm={4}><TextField fullWidth label="Address" value={address} onChange={e => setAddress(e.target.value)} /></Grid>
+                    <Grid item xs={12} sm={2}><TextField fullWidth label="GSTIN" value={gstin} onChange={e => setGstin(e.target.value)} /></Grid>
+                    {isFirms && <><Grid item xs={12} sm={2}><TextField fullWidth label="Mobile" value={mobile} onChange={e => setMobile(e.target.value)} /></Grid><Grid item xs={12} sm={2}><TextField fullWidth label="Email" value={email} onChange={e => setEmail(e.target.value)} /></Grid></>}
+                  </>
+                )}
+                <Grid item xs={12} sm={'auto' as any}><Button onClick={add}>+ New</Button></Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+
+          <TableContainer component={Paper}>
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -191,6 +292,8 @@ export function MasterPage() {
           </TableBody>
         </Table>
       </TableContainer>
+        </>
+      )}
     </Stack>
   )
 }

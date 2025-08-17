@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import dayjs from 'dayjs'
 import { api, getOptions } from '../api'
+import { getLabelPrinter, getChallanPrinter, printToPrinter } from '../utils/printer'
 import { Box, Button, Card, CardContent, Divider, FormControl, Grid, InputLabel, MenuItem, Select, Stack, TextField, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Alert } from '@mui/material'
 import { Modal } from '../components/Modal'
 import { LabelPreview } from '../components/LabelPreview'
@@ -80,7 +81,7 @@ export function ChallanPage() {
     return `CH-${yy}-000000-${String(idx).padStart(2, '0')}`
   }
 
-  function openLabelModal(idx: number, item: BasketItem) {
+  async function openLabelModal(idx: number, item: BasketItem) {
     const metallic = nameOf(metallics, item.metallic_id)
     const cut = nameOf(cuts, item.cut_id)
     const bobType = nameOf(bobTypes, item.bob_type_id)
@@ -90,7 +91,8 @@ export function ChallanPage() {
     const tare = item.bob_qty * bobWt + boxWt
     const net = item.gross_wt - tare
     const barcode = buildBarcode(idx)
-    setLabelData({
+    
+    const labelData = {
       header: 'GLINTEX',
       dateText: new Date().toLocaleString(),
       color: metallic,
@@ -103,8 +105,20 @@ export function ChallanPage() {
       operator: nameOf(employees, item.operator_id),
       helper: item.helper_id ? nameOf(employees, item.helper_id) : '',
       barcode,
-    })
+    }
+    
+    setLabelData(labelData)
     setLabelOpen(true)
+    
+    // Auto-print to preferred printer if configured
+    const preferredPrinter = getLabelPrinter()
+    if (preferredPrinter) {
+      try {
+        await printToPrinter(preferredPrinter, labelData)
+      } catch (error) {
+        console.error('Failed to print to preferred printer:', error)
+      }
+    }
   }
 
   function addToBasket() {
@@ -126,6 +140,30 @@ export function ChallanPage() {
     setPdfUrl(`/api/challans/${id}/print`)
     setPdfOpen(true)
     setBasket([])
+    
+    // Auto-print challan to preferred printer if configured
+    const preferredChallanPrinter = getChallanPrinter()
+    if (preferredChallanPrinter) {
+      try {
+        const challanData = {
+          challanId: id,
+          challanNo: res.data.challan.challan_no,
+          date: date,
+          customer: customers.find(c => c.id === customerId)?.name,
+          items: basket.length,
+          totalNetWeight: basket.reduce((acc, item) => {
+            const bobWt = weightOf(bobTypes, item.bob_type_id)
+            const boxWt = weightOf(boxTypes, item.box_type_id)
+            const tare = (Number(item.bob_qty) || 0) * bobWt + boxWt
+            const net = (Number(item.gross_wt) || 0) - tare
+            return acc + net
+          }, 0)
+        }
+        await printToPrinter(preferredChallanPrinter, challanData)
+      } catch (error) {
+        console.error('Failed to print challan to preferred printer:', error)
+      }
+    }
   }
 
   const disableWeights = true
@@ -133,6 +171,18 @@ export function ChallanPage() {
   return (
     <Stack spacing={2}>
       <Typography variant="h5">Generate Challan</Typography>
+      
+      {/* Printer Status */}
+      {(getLabelPrinter() || getChallanPrinter()) && (
+        <Alert severity="info" icon={false}>
+          <Typography variant="body2">
+            <strong>Printer Configuration:</strong>
+            {getLabelPrinter() && ` Label: ${getLabelPrinter()}`}
+            {getChallanPrinter() && ` Challan: ${getChallanPrinter()}`}
+            {' - '}Documents will be automatically sent to configured printers
+          </Typography>
+        </Alert>
+      )}
 
       <Card>
         <CardContent>
@@ -234,6 +284,16 @@ export function ChallanPage() {
             <Grid item xs={12} sm={2}><Button fullWidth onClick={addToBasket}>Add & Print Label</Button></Grid>
           </Grid>
           <Alert severity="info" sx={{ mt: 2 }}>Barcode preview uses 000000 until challan is saved.</Alert>
+          {getLabelPrinter() && (
+            <Alert severity="success" sx={{ mt: 1 }}>
+              Label printer configured: <strong>{getLabelPrinter()}</strong> - Labels will be auto-printed
+            </Alert>
+          )}
+          {getChallanPrinter() && (
+            <Alert severity="success" sx={{ mt: 1 }}>
+              Challan printer configured: <strong>{getChallanPrinter()}</strong> - Challans will be auto-printed
+            </Alert>
+          )}
         </CardContent>
       </Card>
 

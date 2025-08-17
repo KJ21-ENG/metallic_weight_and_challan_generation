@@ -6,3 +6,4 @@ client/dist/
 Challans/
 **/*.log
 temp_ref/
+tsconfig.tsbuildinfo
