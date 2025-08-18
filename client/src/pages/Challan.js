@@ -40,13 +40,7 @@ export function ChallanPage() {
             setBobTypes(bt);
             setBoxTypes(bx);
             setFirms(f);
-            // Auto-select first customer and shift if not chosen
-            if (!customerId && c.length)
-                setCustomerId(c[0].id);
-            if (!shiftId && s.length)
-                setShiftId(s[0].id);
-            if (!firmId && f.length)
-                setFirmId(f[0].id);
+            // Removed auto-selection of customer, shift, and firm - user must select manually
             // Do not reserve challan number on load; final challan_no will be assigned on save.
         })();
     }, []);
@@ -82,9 +76,9 @@ export function ChallanPage() {
                 const actualBarcode = `CH-${yy}-${challanStr}-${itemStr}`;
                 // Print label for the added item
                 const item = form; // Use the current form data
-                const firmName = firmId ? firms.find(f => Number(f.id) === Number(firmId))?.name || 'SAMAY JARI' : 'SAMAY JARI';
+                const firmName = firmId ? firms.find(f => Number(f.id) === Number(firmId))?.name || 'FIRM NAME' : 'FIRM NAME';
                 const labelData = {
-                    header: firmName, // Use firmName for header instead of hardcoded 'SAMAY JARI'
+                    header: firmName, // Use firmName for header
                     dateText: dayjs(date).format('DD/MM/YYYY\nHH:mm'),
                     color: nameOf(metallics, item.metallic_id),
                     cut: nameOf(cuts, item.cut_id),
@@ -123,9 +117,9 @@ export function ChallanPage() {
                 const yy = dayjs(date).format('YY');
                 const fallbackBarcode = `CH-${yy}-XXXXXX-${String(itemIndex).padStart(2, '0')}`;
                 const item = form;
-                const firmNameFallback = firmId ? firms.find(f => Number(f.id) === Number(firmId))?.name || 'SAMAY JARI' : 'SAMAY JARI';
+                const firmNameFallback = firmId ? firms.find(f => Number(f.id) === Number(firmId))?.name || 'FIRM NAME' : 'FIRM NAME';
                 const labelData = {
-                    header: firmNameFallback, // Use firmName for header instead of hardcoded 'SAMAY JARI'
+                    header: firmNameFallback, // Use firmName for header
                     dateText: dayjs(date).format('DD/MM/YYYY\nHH:mm'),
                     color: nameOf(metallics, item.metallic_id),
                     cut: nameOf(cuts, item.cut_id),
@@ -146,8 +140,12 @@ export function ChallanPage() {
         };
         // Call the async function
         generateAndPrintLabel();
-        // Reset form for next entry
-        setForm({ metallic_id: 0, cut_id: 0, operator_id: 0, helper_id: null, bob_type_id: 0, box_type_id: 0, bob_qty: 0, gross_wt: 0 });
+        // Reset only the weight-related fields for next entry, keep other selections
+        setForm(prevForm => ({
+            ...prevForm,
+            bob_qty: 0,
+            gross_wt: 0
+        }));
     }
     function removeFromBasket(index) {
         const next = [...basket];
@@ -177,7 +175,7 @@ export function ChallanPage() {
         const res = await api.post('/challans', payload);
         const id = res.data.challan.id;
         const challanNo = res.data.challan.challan_no;
-        alert(`Challan generated successfully! ID: ${id}, Challan No: ${challanNo}`);
+        alert(`Challan generated successfully! Challan No: ${challanNo}`);
         console.log('Challan generated with ID:', id, 'and Challan No:', challanNo);
         // Clear the reserved challan number and basket
         setReservedChallanNo(null);
@@ -201,5 +199,5 @@ export function ChallanPage() {
                                                     return acc;
                                                 }, { qty: 0, net: 0 });
                                                 return (_jsxs(TableRow, { children: [_jsx(TableCell, { colSpan: 5, children: _jsx("b", { children: "Totals" }) }), _jsx(TableCell, { align: "right", children: _jsx("b", { children: totals.qty }) }), _jsx(TableCell, {}), _jsx(TableCell, {}), _jsx(TableCell, { align: "right", children: _jsx("b", { children: totals.net.toFixed(3) }) }), _jsx(TableCell, {})] }));
-                                            })()] })] }) }), _jsxs(Stack, { direction: "row", justifyContent: "flex-end", sx: { mt: 2 }, spacing: 2, children: [_jsx(Button, { size: "large", onClick: clearBasket, disabled: basket.length === 0, color: "warning", variant: "outlined", children: "Clear Basket" }), _jsx(Button, { size: "large", onClick: generateChallan, disabled: !customerId || !shiftId || basket.length === 0, children: "Generate Challan" })] }), basket.length > 0 && (_jsx(Box, { sx: { mt: 2, p: 2, bgcolor: 'success.50', borderRadius: 1, border: '1px solid', borderColor: 'success.200' }, children: _jsxs(Typography, { variant: "body2", color: "success.700", children: [_jsx("strong", { children: "Note:" }), " Barcodes on printed labels are the actual barcodes that will be stored in the database. Each item gets a unique barcode in the format CH-YY-XXXXXX-XX where XX is the item index."] }) }))] }) })] }));
+                                            })()] })] }) }), _jsxs(Stack, { direction: "row", justifyContent: "flex-end", sx: { mt: 2 }, spacing: 2, children: [_jsx(Button, { size: "large", onClick: clearBasket, disabled: basket.length === 0, color: "warning", variant: "outlined", children: "Clear Basket" }), _jsx(Button, { size: "large", onClick: generateChallan, disabled: !customerId || !shiftId || basket.length === 0, children: "Generate Challan" })] })] }) })] }));
 }

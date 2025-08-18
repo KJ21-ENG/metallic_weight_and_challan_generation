@@ -50,10 +50,7 @@ export function ChallanPage() {
     ])
     setCustomers(c); setShifts(s); setMetallics(m); setCuts(cu); setEmployees(e); setBobTypes(bt); setBoxTypes(bx); setFirms(f)
     
-    // Auto-select first customer and shift if not chosen
-    if (!customerId && c.length) setCustomerId(c[0].id)
-    if (!shiftId && s.length) setShiftId(s[0].id)
-    if (!firmId && f.length) setFirmId(f[0].id)
+    // Removed auto-selection of customer, shift, and firm - user must select manually
     // Do not reserve challan number on load; final challan_no will be assigned on save.
   })() }, [])
 
@@ -95,10 +92,10 @@ export function ChallanPage() {
         // Print label for the added item
         const item = form; // Use the current form data
         
-        const firmName = firmId ? firms.find(f => Number(f.id) === Number(firmId))?.name || 'SAMAY JARI' : 'SAMAY JARI';
+        const firmName = firmId ? firms.find(f => Number(f.id) === Number(firmId))?.name || 'FIRM NAME' : 'FIRM NAME';
         
         const labelData = {
-          header: firmName, // Use firmName for header instead of hardcoded 'SAMAY JARI'
+          header: firmName, // Use firmName for header
           dateText: dayjs(date).format('DD/MM/YYYY\nHH:mm'),
           color: nameOf(metallics, item.metallic_id),
           cut: nameOf(cuts, item.cut_id),
@@ -139,10 +136,10 @@ export function ChallanPage() {
         
         const item = form;
         
-        const firmNameFallback = firmId ? firms.find(f => Number(f.id) === Number(firmId))?.name || 'SAMAY JARI' : 'SAMAY JARI';
+        const firmNameFallback = firmId ? firms.find(f => Number(f.id) === Number(firmId))?.name || 'FIRM NAME' : 'FIRM NAME';
         
         const labelData = {
-          header: firmNameFallback, // Use firmName for header instead of hardcoded 'SAMAY JARI'
+          header: firmNameFallback, // Use firmName for header
           dateText: dayjs(date).format('DD/MM/YYYY\nHH:mm'),
           color: nameOf(metallics, item.metallic_id),
           cut: nameOf(cuts, item.cut_id),
@@ -166,8 +163,12 @@ export function ChallanPage() {
     // Call the async function
     generateAndPrintLabel();
     
-    // Reset form for next entry
-    setForm({ metallic_id: 0, cut_id: 0, operator_id: 0, helper_id: null, bob_type_id: 0, box_type_id: 0, bob_qty: 0, gross_wt: 0 })
+    // Reset only the weight-related fields for next entry, keep other selections
+    setForm(prevForm => ({
+      ...prevForm,
+      bob_qty: 0,
+      gross_wt: 0
+    }))
   }
 
   function removeFromBasket(index: number) {
@@ -203,7 +204,7 @@ export function ChallanPage() {
     const id = res.data.challan.id as number
     const challanNo = res.data.challan.challan_no as number
     
-    alert(`Challan generated successfully! ID: ${id}, Challan No: ${challanNo}`)
+    alert(`Challan generated successfully! Challan No: ${challanNo}`)
     console.log('Challan generated with ID:', id, 'and Challan No:', challanNo);
     
     // Clear the reserved challan number and basket
@@ -426,15 +427,6 @@ export function ChallanPage() {
               Generate Challan
             </Button>
           </Stack>
-          
-          {basket.length > 0 && (
-            <Box sx={{ mt: 2, p: 2, bgcolor: 'success.50', borderRadius: 1, border: '1px solid', borderColor: 'success.200' }}>
-              <Typography variant="body2" color="success.700">
-                <strong>Note:</strong> Barcodes on printed labels are the actual barcodes that will be stored in the database. 
-                Each item gets a unique barcode in the format CH-YY-XXXXXX-XX where XX is the item index.
-              </Typography>
-            </Box>
-          )}
         </CardContent>
       </Card>
     </Stack>
