@@ -2,12 +2,14 @@
   "name": "metallic-challan-server",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "main": "dist/index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
-    "migrate": "ts-node src/migrations/migrate.ts"
+    "migrate": "node scripts/run-migrations.js",
+    "cleanup-pdfs": "node scripts/cleanup-pdfs.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
