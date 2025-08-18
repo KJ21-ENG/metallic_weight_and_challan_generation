@@ -3,7 +3,7 @@ import dayjs from "dayjs";
 import { pool, withTransaction } from "../db";
 import { z } from "zod";
 import { computeNetKg, computeTareKg } from "../utils/weights";
-import { getNextSequence, peekSequence } from "../services/sequencing";
+import { getNextSequence, peekSequence, incrementSequence } from "../services/sequencing";
 import { generateChallanPdf } from "../services/pdf";
 import fs from "fs";
 import path from "path";
@@ -195,6 +195,10 @@ challansRouter.post("/", async (req: Request, res: Response, next: NextFunction)
 
       return { challan, items: itemRows, pdf_path: relativePath };
     });
+
+    // Increment the sequence after successful challan creation
+    // This ensures the challan_key is incremented even when using pre-reserved challan numbers
+    await incrementSequence("challan_no");
 
     res.status(201).json(result);
   } catch (err) { next(err); }

@@ -26,3 +26,19 @@ export async function peekSequence(key: string): Promise<number> {
   });
   return res;
 }
+
+// Increment sequence by 1 for a given key
+export async function incrementSequence(key: string): Promise<void> {
+  return withTransaction(async (client) => {
+    const upsert = `
+      insert into sequencing (key, value) values ($1, 0)
+      on conflict (key) do nothing
+    `;
+    await client.query(upsert, [key]);
+
+    await client.query(
+      "update sequencing set value = value + 1 where key = $1",
+      [key]
+    );
+  });
+}
