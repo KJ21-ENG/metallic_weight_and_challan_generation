@@ -215,7 +215,11 @@ export async function generateChallanPdf(options: {
     const sigY = second.y + 24;
     doc.font("Helvetica").fontSize(9).fillColor(lightText);
     doc.text("Received By (Customer Sign):", boxX + 12, sigY);
-    doc.text("Authorized Sign (Samay Jari):", boxX + boxW - 210, sigY, { width: 200, align: "right" });
+    
+    // Use firm name if available, otherwise use generic text
+    const authorizedSignText = firm ? `Authorized Sign (${firm.name}):` : "Authorized Sign:";
+    doc.text(authorizedSignText, boxX + boxW - 210, sigY, { width: 200, align: "right" });
+    
     doc.text("___________________", boxX + 12, sigY + 16);
     doc.text("___________________", boxX + boxW - 210, sigY + 16, { width: 200, align: "right" });
   }

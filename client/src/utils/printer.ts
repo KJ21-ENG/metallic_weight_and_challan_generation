@@ -1,5 +1,5 @@
 // Printer utility functions for managing printer preferences
-import { generateStickerHTML, DEFAULT_STICKER_HEADER, type StickerData } from './stickerLayout'
+import { generateStickerHTML, type StickerData } from './stickerLayout'
 
 export interface PrinterPreferences {
   labelPrinter: string;
@@ -109,7 +109,7 @@ async function silentPrintBoxSticker(boxData: any, rollId: string, customerName:
 
     // Prepare sticker data for layout generation
     const stickerData: StickerData = {
-      header: boxData.firmName || DEFAULT_STICKER_HEADER, // Use firmName for header
+      header: boxData.firmName || 'FIRM NAME', // Use firmName for header
       dateText: new Date().toLocaleDateString('en-GB'),
       color: selectedLotDetails?.color_name || boxData.color || '',
       cut: boxData.cut || '',
@@ -123,7 +123,7 @@ async function silentPrintBoxSticker(boxData: any, rollId: string, customerName:
       barcode: boxData.barcode || '000000000000',
       tare: parseFloat(boxData.tare) || 0,
       boxType: boxData.boxType || '',
-      firmName: boxData.firmName || DEFAULT_STICKER_HEADER
+      firmName: boxData.firmName || 'FIRM NAME'
     };
 
     // Generate HTML using the dedicated layout file

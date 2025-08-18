@@ -192,7 +192,4 @@ export function generateStickerHTML(data: StickerData): string {
   `
 }
 
-/**
- * Default sticker header
- */
-export const DEFAULT_STICKER_HEADER = 'SAMAY JARI'
+// Note: DEFAULT_STICKER_HEADER is no longer used since we now use firmName dynamically
