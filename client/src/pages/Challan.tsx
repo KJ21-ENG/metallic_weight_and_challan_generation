@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
-import dayjs from 'dayjs'
-import { api, getOptions } from '../api'
-import { Box, Button, Card, CardContent, FormControl, Grid, InputLabel, MenuItem, Select, Stack, TextField, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material'
+import { useEffect, useMemo, useState } from 'react';
+import dayjs from 'dayjs';
+import { api, getOptions } from '../api';
+import { printLabel, getLabelPrinter } from '../utils/printer';
+import { Box, Button, Card, CardContent, FormControl, Grid, InputLabel, MenuItem, Select, Stack, TextField, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 
 type Option = { id: number; name: string; weight_kg?: number; role_operator?: boolean; role_helper?: boolean }
 
@@ -65,6 +66,42 @@ export function ChallanPage() {
 
   function addToBasket() {
     setBasket([...basket, form])
+    
+    // Print label for the added item
+    const item = form; // Use the current form data
+    const labelData = {
+      header: 'SURYARAJ POLYMER',
+      dateText: dayjs(date).format('DD/MM/YYYY\nHH:mm'),
+      color: nameOf(metallics, item.metallic_id),
+      cut: nameOf(cuts, item.cut_id),
+      bobQty: item.bob_qty,
+      gross: item.gross_wt,
+      bobWeight: weightOf(bobTypes, item.bob_type_id),
+      boxWeight: weightOf(boxTypes, item.box_type_id),
+      net: net,
+      operator: nameOf(employees, item.operator_id),
+      helper: item.helper_id ? nameOf(employees, item.helper_id) : '',
+      barcode: `CH${dayjs(date).format('YY')}${String(Math.floor(Math.random() * 1000000)).padStart(6, '0')}`,
+      // Add the fields that the printer utility expects
+      tare: tare,
+      boxType: nameOf(bobTypes, item.bob_type_id)
+    };
+    
+    // Print the label automatically
+    printLabel(labelData).then(success => {
+      if (success) {
+        console.log('Label printed successfully');
+        // Show success message to user
+        const successMsg = `Label printed to ${getLabelPrinter() || 'configured printer'}`;
+        // You can replace this with a proper notification system
+        console.log(successMsg);
+      } else {
+        console.warn('Label printing failed');
+        // Show warning to user
+        console.warn('Label printing failed. Please check printer configuration.');
+      }
+    });
+    
     // Reset form for next entry
     setForm({ metallic_id: 0, cut_id: 0, operator_id: 0, helper_id: null, bob_type_id: 0, box_type_id: 0, bob_qty: 0, gross_wt: 0 })
   }

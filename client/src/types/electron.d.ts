@@ -7,6 +7,7 @@ declare global {
         status?: number;
         isDefault?: boolean;
       }>>;
+      printToPrinter: (printerName: string, content: string) => Promise<boolean>;
     };
   }
 }

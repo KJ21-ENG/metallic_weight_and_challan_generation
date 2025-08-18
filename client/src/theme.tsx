@@ -1,5 +1,6 @@
-import { createTheme, ThemeProvider, CssBaseline } from '@mui/material'
-import { ReactNode } from 'react'
+import { createTheme, ThemeProvider } from '@mui/material/styles';
+import { CssBaseline } from '@mui/material';
+import { ReactNode } from 'react';
 
 const theme = createTheme({
   palette: {
@@ -14,7 +15,7 @@ const theme = createTheme({
     MuiTextField: { defaultProps: { size: 'small' } },
     MuiSelect: { defaultProps: { size: 'small' } },
   },
-})
+});
 
 export function AppTheme({ children }: { children: ReactNode }) {
   return (
@@ -22,8 +23,26 @@ export function AppTheme({ children }: { children: ReactNode }) {
       <CssBaseline />
       {children}
     </ThemeProvider>
-  )
+  );
 }
+
+// Add global CSS for printing animations
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes indeterminate-progress {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+  
+  .animate-\\[indeterminate-progress_2s_linear_infinite\\] {
+    animation: indeterminate-progress 2s linear infinite;
+  }
+`;
+document.head.appendChild(style);
 
 
 

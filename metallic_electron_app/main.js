@@ -27,6 +27,174 @@ ipcMain.handle('test', async () => {
   return 'IPC is working!';
 });
 
+// Print to specific printer handler
+ipcMain.handle('print-to-printer', async (event, printerName, content) => {
+  try {
+    console.log(`Printing to printer: ${printerName}`);
+    
+    if (mainWindow && mainWindow.webContents) {
+      // Create a new window for printing
+      const printWindow = new BrowserWindow({
+        parent: mainWindow,
+        width: 800,
+        height: 600,
+        show: false,
+        webPreferences: { 
+          contextIsolation: false, 
+          nodeIntegration: true 
+        }
+      });
+
+      // Load the content as HTML
+      await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(content)}`);
+      
+      // Wait for content to load
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Print to specific printer
+      const printOptions = {
+        silent: false,
+        printBackground: true,
+        deviceName: printerName
+      };
+      
+      const success = await printWindow.webContents.print(printOptions);
+      
+      // Close the print window
+      printWindow.close();
+      
+      return success;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error printing to printer:', error);
+    return false;
+  }
+});
+
+// Silent printing handler for labels - working approach from receive.js
+ipcMain.handle('print-silently', async (event, options) => {
+  try {
+    const { html, silent = true, printBackground = true, deviceName } = options;
+    console.log(`Silent printing to printer: ${deviceName}`);
+    
+    if (mainWindow && mainWindow.webContents) {
+      // Create a new hidden window for printing
+      const printWindow = new BrowserWindow({
+        parent: mainWindow,
+        width: 800,
+        height: 600,
+        show: false,
+        webPreferences: { 
+          contextIsolation: false, 
+          nodeIntegration: true 
+        }
+      });
+
+      // Load the HTML content
+      await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+      
+      // Wait for content to load and barcode to generate
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Print silently to specific printer using callback method
+      const printOptions = {
+        silent: silent,
+        printBackground: printBackground,
+        deviceName: deviceName,
+        margins: {
+          marginType: 'none'
+        },
+        pageSize: {
+          width: 283000, // 75mm in microns
+          height: 472000  // 125mm in microns
+        }
+      };
+      
+      console.log('Print options:', printOptions);
+      
+      // Use the callback method to get the actual print result
+      return new Promise((resolve) => {
+        try {
+          printWindow.webContents.print(printOptions, (success, failureReason) => {
+            console.log('Print callback result:', { success, failureReason });
+            
+            // Close the print window
+            printWindow.close();
+            
+            if (success) {
+              console.log('Silent print successful');
+              resolve(true);
+            } else {
+              console.error('Silent print failed:', failureReason);
+              // Try fallback method
+              console.log('Trying fallback print method...');
+              resolve(tryFallbackPrint(deviceName, html));
+            }
+          });
+        } catch (printError) {
+          console.error('Error calling webContents.print:', printError);
+          printWindow.close();
+          // Try fallback method
+          console.log('Trying fallback print method due to error...');
+          resolve(tryFallbackPrint(deviceName, html));
+        }
+      });
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error in silent printing:', error);
+    return false;
+  }
+});
+
+// Fallback printing method using printToPDF
+async function tryFallbackPrint(deviceName, html) {
+  try {
+    console.log('Using fallback print method for device:', deviceName);
+    
+    // Create a new window for fallback printing
+    const fallbackWindow = new BrowserWindow({
+      width: 800,
+      height: 600,
+      show: false,
+      webPreferences: { 
+        contextIsolation: false, 
+        nodeIntegration: true 
+      }
+    });
+
+    // Load the HTML content
+    await fallbackWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    
+    // Wait for content to load
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Try to print using a different approach
+    const printOptions = {
+      silent: false, // Show print dialog as fallback
+      printBackground: true,
+      deviceName: deviceName
+    };
+    
+    console.log('Fallback print options:', printOptions);
+    
+    return new Promise((resolve) => {
+      fallbackWindow.webContents.print(printOptions, (success, failureReason) => {
+        console.log('Fallback print result:', { success, failureReason });
+        fallbackWindow.close();
+        resolve(success);
+      });
+    });
+    
+  } catch (error) {
+    console.error('Error in fallback printing:', error);
+    return false;
+  }
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
