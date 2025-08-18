@@ -100,27 +100,9 @@ challansRouter.post("/", async (req: Request, res: Response, next: NextFunction)
   try {
     const { date, customer_id, shift_id, firm_id, items, challan_no } = createSchema.parse(req.body);
 
-    // NOTE: We ignore any client-provided challan_no here and increment the
-    // sequencing table inside the same DB transaction. The client may have
-    // previously peeked at the next sequence value and used (current+1) for
-    // barcode printing, but the authoritative increment happens only when the
-    // challan is successfully created.
+    const challanNo = typeof challan_no === "number" ? challan_no : await getNextSequence("challan_no");
+
     const result = await withTransaction(async (client) => {
-      // Ensure sequencing row exists (upsert)
-      await client.query(
-        `insert into sequencing (key, value) values ($1, 0) on conflict (key) do nothing`,
-        ["challan_no"]
-      );
-
-      // Atomically increment and fetch the next sequence value inside the
-      // current transaction so the sequencing table only advances when the
-      // challan is created successfully.
-      const seqRes = await client.query(
-        "update sequencing set value = value + 1 where key = $1 returning value",
-        ["challan_no"]
-      );
-      const challanNo = seqRes.rows[0].value as number;
-
       const challanInsert = await client.query(
         `insert into challans (challan_no, date, customer_id, shift_id, firm_id) values ($1, $2, $3, $4, $5) returning *`,
         [challanNo, date, customer_id, shift_id, firm_id ?? null]
