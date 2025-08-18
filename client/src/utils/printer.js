@@ -91,7 +91,7 @@ async function silentPrintBoxSticker(boxData, rollId, customerName, selectedLotD
         console.log('Using printer from settings:', printerName);
         // Prepare sticker data for layout generation
         const stickerData = {
-            header: DEFAULT_STICKER_HEADER,
+            header: boxData.firmName || DEFAULT_STICKER_HEADER, // Use firmName for header
             dateText: new Date().toLocaleDateString('en-GB'),
             color: selectedLotDetails?.color_name || boxData.color || '',
             cut: boxData.cut || '',
@@ -105,7 +105,7 @@ async function silentPrintBoxSticker(boxData, rollId, customerName, selectedLotD
             barcode: boxData.barcode || '000000000000',
             tare: parseFloat(boxData.tare) || 0,
             boxType: boxData.boxType || '',
-            firmName: boxData.firmName || DEFAULT_STICKER_HEADER // Use firm name or fallback to default
+            firmName: boxData.firmName || DEFAULT_STICKER_HEADER
         };
         // Generate HTML using the dedicated layout file
         const html = generateStickerHTML(stickerData);

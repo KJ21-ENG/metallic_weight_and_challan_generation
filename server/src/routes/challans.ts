@@ -11,7 +11,13 @@ import { config } from "../config";
 
 export const challansRouter = Router();
 
-// Removed reserve-number to avoid accidental sequence increments
+// Get next challan number
+challansRouter.get("/next-number", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const nextNumber = await getNextSequence("challan_no");
+    res.json({ nextNumber });
+  } catch (err) { next(err); }
+});
 
 // List challans (optionally by date range)
 challansRouter.get("/", async (req: Request, res: Response, next: NextFunction) => {

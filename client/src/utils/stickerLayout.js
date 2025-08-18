@@ -6,13 +6,13 @@
  * Generate HTML for the sticker label
  */
 export function generateStickerHTML(data) {
-    const { header, dateText, color, cut, bobQty, gross, bobWeight, boxWeight, net, operator, helper, barcode, tare, boxType } = data;
+    const { header, dateText, color, cut, bobQty, gross, bobWeight, boxWeight, net, operator, helper, barcode, tare, boxType, firmName } = data;
     return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>${data.firmName}</title>
+    <title>${firmName}</title>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <style>
         @page {
@@ -88,7 +88,7 @@ export function generateStickerHTML(data) {
 <body>
     <div class="sticker-border">
         <div class="sticker-inner">
-            <div class="header">${header}</div>
+            <div class="header">${firmName}</div>
             <table>
                 <tr>
                     <td>DATE :</td>

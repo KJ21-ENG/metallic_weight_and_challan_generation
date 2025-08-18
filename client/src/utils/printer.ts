@@ -109,7 +109,7 @@ async function silentPrintBoxSticker(boxData: any, rollId: string, customerName:
 
     // Prepare sticker data for layout generation
     const stickerData: StickerData = {
-      header: DEFAULT_STICKER_HEADER,
+      header: boxData.firmName || DEFAULT_STICKER_HEADER, // Use firmName for header
       dateText: new Date().toLocaleDateString('en-GB'),
       color: selectedLotDetails?.color_name || boxData.color || '',
       cut: boxData.cut || '',
@@ -122,7 +122,8 @@ async function silentPrintBoxSticker(boxData: any, rollId: string, customerName:
       helper: boxData.helper || '',
       barcode: boxData.barcode || '000000000000',
       tare: parseFloat(boxData.tare) || 0,
-      boxType: boxData.boxType || ''
+      boxType: boxData.boxType || '',
+      firmName: boxData.firmName || DEFAULT_STICKER_HEADER
     };
 
     // Generate HTML using the dedicated layout file

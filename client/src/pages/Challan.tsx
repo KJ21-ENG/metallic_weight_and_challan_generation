@@ -32,6 +32,7 @@ export function ChallanPage() {
   const [customerId, setCustomerId] = useState<number | ''>('' as any)
   const [shiftId, setShiftId] = useState<number | ''>('' as any)
   const [firmId, setFirmId] = useState<number | ''>('' as any)
+  const [reservedChallanNo, setReservedChallanNo] = useState<number | null>(null)
 
   const [form, setForm] = useState<BasketItem>({ metallic_id: 0, cut_id: 0, operator_id: 0, helper_id: null, bob_type_id: 0, box_type_id: 0, bob_qty: 0, gross_wt: 0 })
   const [basket, setBasket] = useState<BasketItem[]>([])
@@ -48,6 +49,7 @@ export function ChallanPage() {
       getOptions('firms'),
     ])
     setCustomers(c); setShifts(s); setMetallics(m); setCuts(cu); setEmployees(e); setBobTypes(bt); setBoxTypes(bx); setFirms(f)
+    
     // Auto-select first customer and shift if not chosen
     if (!customerId && c.length) setCustomerId(c[0].id)
     if (!shiftId && s.length) setShiftId(s[0].id)
@@ -67,39 +69,102 @@ export function ChallanPage() {
   function addToBasket() {
     setBasket([...basket, form])
     
-    // Print label for the added item
-    const item = form; // Use the current form data
-    const labelData = {
-      header: 'SAMAY JARI', // Updated to match the sticker layout
-      dateText: dayjs(date).format('DD/MM/YYYY\nHH:mm'),
-      color: nameOf(metallics, item.metallic_id),
-      cut: nameOf(cuts, item.cut_id),
-      bobQty: item.bob_qty,
-      gross: item.gross_wt,
-      bobWeight: weightOf(bobTypes, item.bob_type_id),
-      boxWeight: weightOf(boxTypes, item.box_type_id),
-      net: net,
-      operator: nameOf(employees, item.operator_id),
-      helper: item.helper_id ? nameOf(employees, item.helper_id) : '',
-      barcode: `CH${dayjs(date).format('YY')}${String(Math.floor(Math.random() * 1000000)).padStart(6, '0')}`,
-      tare: tare,
-      boxType: nameOf(bobTypes, item.bob_type_id)
+    // Generate the actual barcode that will be stored in the database
+    // We need to fetch the next challan number first (only if we don't have one reserved)
+    const generateAndPrintLabel = async () => {
+      try {
+        let challanNo: number;
+        
+        if (reservedChallanNo === null) {
+          // First item in this basket - reserve a challan number
+          const nextNumberRes = await api.get('/challans/next-number');
+          challanNo = nextNumberRes.data.nextNumber;
+          setReservedChallanNo(challanNo);
+        } else {
+          // Reuse the reserved challan number for subsequent items
+          challanNo = reservedChallanNo;
+        }
+        
+        // Generate the actual barcode format: CH-YY-XXXXXX-XX
+        const itemIndex = basket.length + 1;
+        const yy = dayjs(date).format('YY');
+        const challanStr = String(challanNo).padStart(6, '0');
+        const itemStr = String(itemIndex).padStart(2, '0');
+        const actualBarcode = `CH-${yy}-${challanStr}-${itemStr}`;
+        
+        // Print label for the added item
+        const item = form; // Use the current form data
+        
+        const firmName = firmId ? firms.find(f => Number(f.id) === Number(firmId))?.name || 'SAMAY JARI' : 'SAMAY JARI';
+        
+        const labelData = {
+          header: firmName, // Use firmName for header instead of hardcoded 'SAMAY JARI'
+          dateText: dayjs(date).format('DD/MM/YYYY\nHH:mm'),
+          color: nameOf(metallics, item.metallic_id),
+          cut: nameOf(cuts, item.cut_id),
+          bobQty: item.bob_qty,
+          gross: item.gross_wt,
+          bobWeight: weightOf(bobTypes, item.bob_type_id),
+          boxWeight: weightOf(boxTypes, item.box_type_id),
+          net: net,
+          operator: nameOf(employees, item.operator_id),
+          helper: item.helper_id ? nameOf(employees, item.helper_id) : '',
+          barcode: actualBarcode,
+          tare: tare,
+          boxType: nameOf(bobTypes, item.bob_type_id),
+          firmName: firmName
+        };
+        
+        // Print the label automatically
+        printLabel(labelData).then(success => {
+          if (success) {
+            console.log('Label printed successfully');
+            // Show success message to user
+            const successMsg = `Label printed to ${getLabelPrinter() || 'configured printer'}`;
+            // You can replace this with a proper notification system
+            console.log(successMsg);
+          } else {
+            console.warn('Label printing failed');
+            // Show warning to user
+            console.warn('Label printing failed. Please check printer configuration.');
+          }
+        });
+        
+      } catch (error) {
+        console.error('Error getting next challan number:', error);
+        // Fallback: use a placeholder barcode if we can't get the next number
+        const itemIndex = basket.length + 1;
+        const yy = dayjs(date).format('YY');
+        const fallbackBarcode = `CH-${yy}-XXXXXX-${String(itemIndex).padStart(2, '0')}`;
+        
+        const item = form;
+        
+        const firmNameFallback = firmId ? firms.find(f => Number(f.id) === Number(firmId))?.name || 'SAMAY JARI' : 'SAMAY JARI';
+        
+        const labelData = {
+          header: firmNameFallback, // Use firmName for header instead of hardcoded 'SAMAY JARI'
+          dateText: dayjs(date).format('DD/MM/YYYY\nHH:mm'),
+          color: nameOf(metallics, item.metallic_id),
+          cut: nameOf(cuts, item.cut_id),
+          bobQty: item.bob_qty,
+          gross: item.gross_wt,
+          bobWeight: weightOf(bobTypes, item.bob_type_id),
+          boxWeight: weightOf(boxTypes, item.box_type_id),
+          net: net,
+          operator: nameOf(employees, item.operator_id),
+          helper: item.helper_id ? nameOf(employees, item.helper_id) : '',
+          barcode: fallbackBarcode,
+          tare: tare,
+          boxType: nameOf(bobTypes, item.bob_type_id),
+          firmName: firmNameFallback
+        };
+        
+        printLabel(labelData);
+      }
     };
     
-    // Print the label automatically
-    printLabel(labelData).then(success => {
-      if (success) {
-        console.log('Label printed successfully');
-        // Show success message to user
-        const successMsg = `Label printed to ${getLabelPrinter() || 'configured printer'}`;
-        // You can replace this with a proper notification system
-        console.log(successMsg);
-      } else {
-        console.warn('Label printing failed');
-        // Show warning to user
-        console.warn('Label printing failed. Please check printer configuration.');
-      }
-    });
+    // Call the async function
+    generateAndPrintLabel();
     
     // Reset form for next entry
     setForm({ metallic_id: 0, cut_id: 0, operator_id: 0, helper_id: null, bob_type_id: 0, box_type_id: 0, bob_qty: 0, gross_wt: 0 })
@@ -109,14 +174,40 @@ export function ChallanPage() {
     const next = [...basket]
     next.splice(index, 1)
     setBasket(next)
+    
+    // If basket becomes empty, clear the reserved challan number
+    if (next.length === 0) {
+      setReservedChallanNo(null)
+    }
+  }
+
+  function clearBasket() {
+    setBasket([])
+    setReservedChallanNo(null)
   }
 
   async function generateChallan() {
     if (!customerId || !shiftId || basket.length === 0) return alert('Fill header and add items')
-    const payload: any = { date, customer_id: Number(customerId), shift_id: Number(shiftId), firm_id: firmId ? Number(firmId) : undefined, items: basket }
+    
+    // Use the reserved challan number if available, otherwise let the server generate one
+    const payload: any = { 
+      date, 
+      customer_id: Number(customerId), 
+      shift_id: Number(shiftId), 
+      firm_id: firmId ? Number(firmId) : undefined, 
+      items: basket,
+      challan_no: reservedChallanNo || undefined
+    }
+    
     const res = await api.post('/challans', payload)
     const id = res.data.challan.id as number
-    alert(`Challan generated successfully! ID: ${id}`)
+    const challanNo = res.data.challan.challan_no as number
+    
+    alert(`Challan generated successfully! ID: ${id}, Challan No: ${challanNo}`)
+    console.log('Challan generated with ID:', id, 'and Challan No:', challanNo);
+    
+    // Clear the reserved challan number and basket
+    setReservedChallanNo(null)
     setBasket([])
   }
 
@@ -252,6 +343,17 @@ export function ChallanPage() {
       <Card>
         <CardContent>
           <Typography variant="h6" gutterBottom>Basket</Typography>
+          
+          {reservedChallanNo && (
+            <Box sx={{ mb: 2, p: 2, bgcolor: 'primary.50', borderRadius: 1, border: '1px solid', borderColor: 'primary.200' }}>
+              <Typography variant="body2" color="primary.700">
+                <strong>Reserved Challan Number:</strong> {reservedChallanNo} 
+                <br />
+                <small>This number will be used for all items in this basket</small>
+              </Typography>
+            </Box>
+          )}
+          
           <TableContainer component={Paper}>
             <Table size="small">
               <TableHead>
@@ -316,9 +418,23 @@ export function ChallanPage() {
             </Table>
           </TableContainer>
 
-          <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2 }}>
-            <Button size="large" onClick={generateChallan} disabled={!customerId || !shiftId || basket.length===0}>Generate Challan</Button>
+          <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2 }} spacing={2}>
+            <Button size="large" onClick={clearBasket} disabled={basket.length === 0} color="warning" variant="outlined">
+              Clear Basket
+            </Button>
+            <Button size="large" onClick={generateChallan} disabled={!customerId || !shiftId || basket.length===0}>
+              Generate Challan
+            </Button>
           </Stack>
+          
+          {basket.length > 0 && (
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'success.50', borderRadius: 1, border: '1px solid', borderColor: 'success.200' }}>
+              <Typography variant="body2" color="success.700">
+                <strong>Note:</strong> Barcodes on printed labels are the actual barcodes that will be stored in the database. 
+                Each item gets a unique barcode in the format CH-YY-XXXXXX-XX where XX is the item index.
+              </Typography>
+            </Box>
+          )}
         </CardContent>
       </Card>
     </Stack>

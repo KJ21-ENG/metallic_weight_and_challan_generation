@@ -18,6 +18,7 @@ export interface StickerData {
   barcode: string
   tare: number
   boxType: string
+  firmName: string
 }
 
 /**
@@ -38,7 +39,8 @@ export function generateStickerHTML(data: StickerData): string {
     helper,
     barcode,
     tare,
-    boxType
+    boxType,
+    firmName
   } = data
 
   return `
@@ -46,7 +48,7 @@ export function generateStickerHTML(data: StickerData): string {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>${header}</title>
+    <title>${firmName}</title>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <style>
         @page {
@@ -122,7 +124,7 @@ export function generateStickerHTML(data: StickerData): string {
 <body>
     <div class="sticker-border">
         <div class="sticker-inner">
-            <div class="header">${header}</div>
+            <div class="header">${firmName}</div>
             <table>
                 <tr>
                     <td>DATE :</td>
