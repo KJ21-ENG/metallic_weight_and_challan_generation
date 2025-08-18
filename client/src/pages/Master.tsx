@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, getOptions } from '../api'
 import { Alert, Box, Button, Card, CardContent, Chip, FormControl, Grid, InputLabel, MenuItem, Select, Stack, Tab, Tabs, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Paper, Checkbox, Typography } from '@mui/material'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 
 type Item = { id: number; name: string; weight_kg?: number; role_operator?: boolean; role_helper?: boolean; address?: string | null; gstin?: string | null }
 
@@ -30,6 +31,10 @@ export function MasterPage() {
   const [email, setEmail] = useState('')
   const [editingId, setEditingId] = useState<number | null>(null)
   const [edit, setEdit] = useState<Item | null>(null)
+  
+  // Confirmation dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [itemToDelete, setItemToDelete] = useState<number | null>(null)
   
   // Printer settings state
   const [labelPrinter, setLabelPrinter] = useState('')
@@ -138,9 +143,23 @@ export function MasterPage() {
   }
 
   async function remove(id: number) {
-    const reason = window.prompt('Reason for delete?') || ''
-    await api.delete(`/master/${type}/${id}`, { params: { reason } })
-    setItems(items.filter(i => i.id !== id))
+    setItemToDelete(id)
+    setDeleteDialogOpen(true)
+  }
+
+  async function confirmDelete(reason?: string) {
+    if (!itemToDelete) return
+    
+    try {
+      await api.delete(`/master/${type}/${itemToDelete}`, { params: { reason: reason || '' } })
+      setItems(items.filter(i => i.id !== itemToDelete))
+      setDeleteDialogOpen(false)
+      setItemToDelete(null)
+    } catch (error) {
+      console.error('Failed to delete item:', error)
+      setDeleteDialogOpen(false)
+      setItemToDelete(null)
+    }
   }
 
   return (
@@ -327,6 +346,21 @@ export function MasterPage() {
       </TableContainer>
         </>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        title="Confirm Delete"
+        message={`Are you sure you want to delete this ${type.slice(0, -1)}? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        requireReason={true}
+        onConfirm={confirmDelete}
+        onCancel={() => {
+          setDeleteDialogOpen(false)
+          setItemToDelete(null)
+        }}
+      />
     </Stack>
   )
 }
