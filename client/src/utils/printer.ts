@@ -1,4 +1,5 @@
 // Printer utility functions for managing printer preferences
+import { generateStickerHTML, DEFAULT_STICKER_HEADER, type StickerData } from './stickerLayout'
 
 export interface PrinterPreferences {
   labelPrinter: string;
@@ -106,197 +107,26 @@ async function silentPrintBoxSticker(boxData: any, rollId: string, customerName:
     const printerName = settings.labelPrinter || 'Microsoft Print to PDF';
     console.log('Using printer from settings:', printerName);
 
-    // Prepare Print Content with proper typing
-    const printContent: {
-      customerName: string;
-      rollId: string;
-      boxType: any;
-      grossWeight: string;
-      color: string;
-      cut: string;
-      netWeight: string;
-      operator: string;
-      helper: string;
-      bobbinQty: any;
-      barcode: any;
-      tareWeight: string;
-      printDate: string;
-      totalBobbinWeight?: string;
-      boxWeight?: string;
-    } = {
-      customerName: customerName || '',
-      rollId: rollId || '',
-      boxType: boxData.boxType || '',
-      grossWeight: `${boxData.gross || 0}`,
-      color: `${selectedLotDetails?.color_name || boxData.color || ''}`,
-      cut: `${boxData.cut || ''}`,
-      netWeight: `${boxData.net || 0}`,
-      operator: `${boxData.operator || ''}`,
-      helper: `${boxData.helper || ''}`,
-      bobbinQty: boxData.bobQty || 0,
-      barcode: boxData.barcode,
-      tareWeight: `${boxData.tare || 0}`,
-      printDate: new Date().toLocaleDateString('en-GB')
+    // Prepare sticker data for layout generation
+    const stickerData: StickerData = {
+      header: DEFAULT_STICKER_HEADER,
+      dateText: new Date().toLocaleDateString('en-GB'),
+      color: selectedLotDetails?.color_name || boxData.color || '',
+      cut: boxData.cut || '',
+      bobQty: boxData.bobQty || 0,
+      gross: parseFloat(boxData.gross) || 0,
+      bobWeight: parseFloat(boxData.bobWeight) || 0,
+      boxWeight: parseFloat(boxData.boxWeight) || 0,
+      net: parseFloat(boxData.net) || 0,
+      operator: boxData.operator || '',
+      helper: boxData.helper || '',
+      barcode: boxData.barcode || '000000000000',
+      tare: parseFloat(boxData.tare) || 0,
+      boxType: boxData.boxType || ''
     };
 
-    // Calculate individual weight components
-    const bobbinWeightPerItemKg = (parseFloat(boxData.bobWeight) || 0);
-    const totalBobbinWeight = (parseInt(boxData.bobQty) || 0) * bobbinWeightPerItemKg;
-    const combinedTareWeight = parseFloat(printContent.tareWeight) || 0;
-    const boxWeightKg = combinedTareWeight - totalBobbinWeight;
-
-    // Add individual components to printContent
-    printContent.totalBobbinWeight = totalBobbinWeight.toFixed(3);
-    printContent.boxWeight = boxWeightKg.toFixed(3);
-
-    // Generate HTML
-    const html = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>SAMAY JARI</title>
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-    <style>
-        @page {
-            size: 75mm 125mm;
-            margin: 0;
-        }
-
-        body {
-            margin: 0;
-            padding: 0;
-        }
-
-        .sticker-border {
-            width: 75mm;
-            height: 125mm;
-            box-sizing: border-box;
-            padding: 10px;
-            border: 2px solid black;
-            border-radius: 10px;
-            background-color: white;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .sticker-inner {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            border: 2px solid black;
-            border-radius: 10px;
-            overflow: hidden;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            flex-grow: 1;
-        }
-
-        td {
-            border: 1px solid black;
-            padding: 6px;
-            font-size: 11px;
-            font-weight: bold;
-            color: black;
-        }
-
-        .header {
-            text-align: center;
-            font-size: 18px;
-            font-weight: bold;
-            font-style: italic;
-            font-family: 'Arial Black', sans-serif;
-            padding: 8px;
-            border-bottom: 2px solid black;
-            color: black;
-        }
-
-        .barcode-container {
-            text-align: center;
-            padding: 8px;
-            border-top: 2px solid black;
-        }
-
-        #barcode {
-            max-width: 90%;
-            height: auto;
-        }
-    </style>
-</head>
-<body>
-    <div class="sticker-border">
-        <div class="sticker-inner">
-            <div class="header">SAMAY JARI</div>
-            <table>
-                <tr>
-                    <td>DATE :</td>
-                    <td>${printContent.printDate || ''}</td>
-                </tr>
-                <tr>
-                    <td>COLOR :</td>
-                    <td>${printContent.color || ''}</td>
-                </tr>
-                <tr>
-                    <td>CUT :</td>
-                    <td>${printContent.cut || ''}</td>
-                </tr>
-                <tr>
-                    <td>BOB QTY :</td>
-                    <td>${printContent.bobbinQty || ''}</td>
-                </tr>
-                <tr>
-                    <td>GR. WT :</td>
-                    <td>${printContent.grossWeight ? printContent.grossWeight + ' kg' : ''}</td>
-                </tr>
-                <tr>
-                    <td>Box Wt :</td>
-                    <td>${printContent.boxWeight ? printContent.boxWeight + ' kg' : ''}</td>
-                </tr>
-                <tr>
-                    <td>Bob Wt :</td>
-                    <td>${printContent.totalBobbinWeight ? printContent.totalBobbinWeight + ' kg' : ''}</td>
-                </tr>
-                <tr>
-                    <td>NET WT :</td>
-                    <td>${printContent.netWeight ? printContent.netWeight + ' kg' : ''}</td>
-                </tr>
-                <tr>
-                    <td>OP & HE :</td>
-                    <td>${(printContent.operator || '') + (printContent.helper ? ' & ' + printContent.helper : '')}</td>
-                </tr>
-            </table>
-            <div class="barcode-container">
-                <svg id="barcode"></svg>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        window.onload = function () {
-            try {
-                JsBarcode("#barcode", "${printContent.barcode || '000000000000'}", {
-                    format: "CODE128",
-                    displayValue: true,
-                    fontSize: 12,
-                    height: 40,
-                    width: 1.5,
-                    lineColor: "#000",
-                    margin: 5
-                });
-                console.log("Barcode generated successfully");
-            } catch (e) {
-                console.error("Error generating barcode:", e);
-            }
-        }
-    </script>
-</body>
-</html>
-    `;
+    // Generate HTML using the dedicated layout file
+    const html = generateStickerHTML(stickerData);
 
     // Send Print Command via Electron
     if ((window as any).electron) {
@@ -387,115 +217,7 @@ async function silentPrintBoxSticker(boxData: any, rollId: string, customerName:
   }
 }
 
-/**
- * Print to a specific printer using browser print API
- * Creates a temporary printable element and triggers print
- */
-export async function printToPrinter(printerName: string, content: any): Promise<boolean> {
-  try {
-    console.log(`Printing to printer: ${printerName}`);
-    console.log('Content to print:', content);
-    
-    // Create a temporary printable element
-    const printElement = document.createElement('div');
-    printElement.style.position = 'absolute';
-    printElement.style.left = '-9999px';
-    printElement.style.top = '-9999px';
-    
-    // Create the label content using the same structure as LabelPreview
-    const labelHtml = createLabelHTML(content);
-    printElement.innerHTML = labelHtml;
-    
-    // Add to DOM temporarily
-    document.body.appendChild(printElement);
-    
-    // Trigger print
-    window.print();
-    
-    // Clean up
-    setTimeout(() => {
-      document.body.removeChild(printElement);
-    }, 1000);
-    
-    return true;
-  } catch (error) {
-    console.error('Error printing to printer:', error);
-    return false;
-  }
-}
 
-/**
- * Create HTML for the label that matches the LabelPreview component
- */
-function createLabelHTML(labelData: any): string {
-  const { header, dateText, color, cut, bobQty, gross, bobWeight, boxWeight, net, operator, helper, barcode } = labelData;
-  
-  return `
-    <style>
-      @media print {
-        @page {
-          size: 75mm 125mm;
-          margin: 0;
-        }
-        body { margin: 0; }
-        .label-container { 
-          width: 75mm !important; 
-          height: 125mm !important; 
-          page-break-after: always;
-        }
-      }
-    </style>
-    <div class="label-container" style="width: 75mm; height: 125mm; border: 1.4mm solid #000; border-radius: 6mm; padding: 2.5mm; box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; background: white; margin: 0;">
-      <div style="font-size: 8mm; font-weight: 900; font-style: italic; text-align: center; letter-spacing: 0.2mm; margin-bottom: 1.5mm; text-transform: uppercase;">${header}</div>
-      <div style="border: 0.7mm solid #000; border-radius: 3mm; overflow: hidden;">
-        <div style="display: grid; grid-template-columns: 1fr 2fr; border-top: 0.7mm solid #000;">
-          <div style="padding: 2mm; border-right: 0.7mm solid #000; font-weight: 900;">DATE :</div>
-          <div style="padding: 2mm; font-weight: 800;">${dateText}</div>
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 2fr; border-top: 0.7mm solid #000;">
-          <div style="padding: 2mm; border-right: 0.7mm solid #000; font-weight: 900;">COLOR :</div>
-          <div style="padding: 2mm; font-weight: 800;">${color}</div>
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 2fr; border-top: 0.7mm solid #000;">
-          <div style="padding: 2mm; border-right: 0.7mm solid #000; font-weight: 900;">CUT :</div>
-          <div style="padding: 2mm; font-weight: 800;">${cut}</div>
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 2fr; border-top: 0.7mm solid #000;">
-          <div style="padding: 2mm; border-right: 0.7mm solid #000; font-weight: 900;">BOB QTY :</div>
-          <div style="padding: 2mm; font-weight: 800;">${bobQty}</div>
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 2fr; border-top: 0.7mm solid #000;">
-          <div style="padding: 2mm; border-right: 0.7mm solid #000; font-weight: 900;">GR. WT :</div>
-          <div style="padding: 2mm; font-weight: 800;">${gross.toFixed(3)} kg</div>
-        </div>
-        <div style="display: grid; grid-template-columns: 1.2fr 0.9fr 0.9fr; border-top: 0.7mm solid #000;">
-          <div style="padding: 2mm; border-right: 0.7mm solid #000;">
-            <div style="font-weight: 900;">BOB. WT :</div>
-            <div style="margin-top: 1mm; font-weight: 800;">${bobWeight.toFixed(3)} kg</div>
-          </div>
-          <div style="padding: 1mm 0; border-right: 0.7mm solid #000; font-weight: 900; text-align: center; line-height: 1.05;">BO<br/>X.<br/>WT :</div>
-          <div style="padding: 1mm; font-weight: 900; text-align: center;">${boxWeight.toFixed(3)}<br/>kg</div>
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 2fr; border-top: 0.7mm solid #000;">
-          <div style="padding: 2mm; border-right: 0.7mm solid #000; font-weight: 900;">NET WT :</div>
-          <div style="padding: 2mm; font-weight: 800;">${net.toFixed(3)} kg</div>
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 2fr; border-top: 0.7mm solid #000;">
-          <div style="padding: 2mm; border-right: 0.7mm solid #000; font-weight: 900;">OP :</div>
-          <div style="padding: 2mm; font-weight: 800;">${operator || ''}</div>
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 2fr; border-top: 0.7mm solid #000;">
-          <div style="padding: 2mm; border-right: 0.7mm solid #000; font-weight: 800;">HE :</div>
-          <div style="padding: 2mm; font-weight: 800;">${helper || ''}</div>
-        </div>
-        <div style="border-top: 0.7mm solid #000; height: 6mm;"></div>
-      </div>
-      <div style="margin-top: 2mm; text-align: center;">
-        <div style="font-size: 4mm; letter-spacing: 0.8mm; margin-top: 1mm;">${barcode}</div>
-      </div>
-    </div>
-  `;
-}
 
 
 

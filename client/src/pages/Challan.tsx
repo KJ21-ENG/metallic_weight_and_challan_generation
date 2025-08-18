@@ -70,7 +70,7 @@ export function ChallanPage() {
     // Print label for the added item
     const item = form; // Use the current form data
     const labelData = {
-      header: 'SURYARAJ POLYMER',
+      header: 'SAMAY JARI', // Updated to match the sticker layout
       dateText: dayjs(date).format('DD/MM/YYYY\nHH:mm'),
       color: nameOf(metallics, item.metallic_id),
       cut: nameOf(cuts, item.cut_id),
@@ -82,7 +82,6 @@ export function ChallanPage() {
       operator: nameOf(employees, item.operator_id),
       helper: item.helper_id ? nameOf(employees, item.helper_id) : '',
       barcode: `CH${dayjs(date).format('YY')}${String(Math.floor(Math.random() * 1000000)).padStart(6, '0')}`,
-      // Add the fields that the printer utility expects
       tare: tare,
       boxType: nameOf(bobTypes, item.bob_type_id)
     };
