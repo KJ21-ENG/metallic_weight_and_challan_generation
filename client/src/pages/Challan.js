@@ -14,11 +14,11 @@ export function ChallanPage() {
     const [employees, setEmployees] = useState([]);
     const [bobTypes, setBobTypes] = useState([]);
     const [boxTypes, setBoxTypes] = useState([]);
-    const [customerId, setCustomerId] = useState('');
-    const [shiftId, setShiftId] = useState('');
-    const [firmId, setFirmId] = useState('');
+    const [customerId, setCustomerId] = useState(0);
+    const [shiftId, setShiftId] = useState(0);
+    const [firmId, setFirmId] = useState(0);
     const [reservedChallanNo, setReservedChallanNo] = useState(null);
-    const [form, setForm] = useState({ metallic_id: 0, cut_id: 0, operator_id: 0, helper_id: null, bob_type_id: 0, box_type_id: 0, bob_qty: '', gross_wt: '' });
+    const [form, setForm] = useState({ metallic_id: 0, cut_id: 0, operator_id: 0, helper_id: 0, bob_type_id: 0, box_type_id: 0, bob_qty: '', gross_wt: '' });
     const [basket, setBasket] = useState([]);
     useEffect(() => {
         (async () => {
@@ -51,6 +51,95 @@ export function ChallanPage() {
     const boxWt = useMemo(() => weightOf(boxTypes, form.box_type_id), [JSON.stringify(boxTypes), form.box_type_id]);
     const tare = useMemo(() => round3((Number(form.bob_qty) || 0) * bobWt + boxWt), [form.bob_qty, bobWt, boxWt]);
     const net = useMemo(() => round3((Number(form.gross_wt) || 0) - tare), [form.gross_wt, tare]);
+    const isDirty = useMemo(() => {
+        // helper to determine if a value should be considered "present"
+        const hasValue = (v) => {
+            if (v === null || v === undefined)
+                return false;
+            if (typeof v === 'number')
+                return v !== 0;
+            if (typeof v === 'string')
+                return v.trim() !== '';
+            return true;
+        };
+        // Consider fields dirty if any field except date has a non-empty value or basket has items
+        if (hasValue(customerId))
+            return true;
+        if (hasValue(shiftId))
+            return true;
+        if (hasValue(firmId))
+            return true;
+        if (reservedChallanNo !== null)
+            return true;
+        if (basket.length > 0)
+            return true;
+        if (hasValue(form.metallic_id))
+            return true;
+        if (hasValue(form.cut_id))
+            return true;
+        if (hasValue(form.operator_id))
+            return true;
+        if (hasValue(form.helper_id))
+            return true;
+        if (hasValue(form.bob_type_id))
+            return true;
+        if (hasValue(form.box_type_id))
+            return true;
+        if (hasValue(form.bob_qty))
+            return true;
+        if (hasValue(form.gross_wt))
+            return true;
+        return false;
+    }, [customerId, shiftId, firmId, reservedChallanNo, basket, form]);
+    useEffect(() => {
+        // beforeunload for external navigation (reload/close)
+        const onBeforeUnload = (e) => {
+            if (!isDirty)
+                return;
+            e.preventDefault();
+            e.returnValue = '';
+            return '';
+        };
+        window.addEventListener('beforeunload', onBeforeUnload);
+        // Intercept history navigation (client-side)
+        const originalPush = window.history.pushState;
+        const originalReplace = window.history.replaceState;
+        window.history.pushState = function () {
+            if (isDirty) {
+                const proceed = window.confirm('Entered data will be lost. Continue?');
+                if (!proceed)
+                    return;
+            }
+            // @ts-ignore
+            return originalPush.apply(this, arguments);
+        };
+        window.history.replaceState = function () {
+            if (isDirty) {
+                const proceed = window.confirm('Entered data will be lost. Continue?');
+                if (!proceed)
+                    return;
+            }
+            // @ts-ignore
+            return originalReplace.apply(this, arguments);
+        };
+        const onPopState = (e) => {
+            if (!isDirty)
+                return;
+            const proceed = window.confirm('Entered data will be lost. Continue?');
+            if (!proceed) {
+                // If user cancelled, push back the current location to prevent navigation
+                // This attempts to keep the user on the same page
+                window.history.pushState(null, '', window.location.pathname);
+            }
+        };
+        window.addEventListener('popstate', onPopState);
+        return () => {
+            window.removeEventListener('beforeunload', onBeforeUnload);
+            window.removeEventListener('popstate', onPopState);
+            window.history.pushState = originalPush;
+            window.history.replaceState = originalReplace;
+        };
+    }, [isDirty]);
     function addToBasket() {
         // Validate required item fields before proceeding
         const missing = !form.metallic_id || !form.cut_id || !form.operator_id || !form.bob_type_id || !form.box_type_id || form.bob_qty === '' || form.gross_wt === '' || Number(form.bob_qty) <= 0 || Number(form.gross_wt) <= 0;
@@ -197,7 +286,23 @@ export function ChallanPage() {
         setBasket([]);
     }
     const disableWeights = true;
-    return (_jsxs(Stack, { spacing: 2, children: [_jsx(Typography, { variant: "h5", children: "Generate Challan" }), _jsx(Card, { children: _jsx(CardContent, { children: _jsxs(Grid, { container: true, spacing: 2, children: [_jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsx(TextField, { fullWidth: true, label: "Date", type: "date", value: date, onChange: e => setDate(e.target.value), InputLabelProps: { shrink: true } }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Customer" }), _jsxs(Select, { label: "Customer", value: customerId, onChange: e => setCustomerId(Number(e.target.value)), children: [_jsx(MenuItem, { value: "", children: _jsx("em", { children: "Select" }) }), customers.map(c => _jsx(MenuItem, { value: c.id, children: c.name }, c.id))] })] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Shift" }), _jsxs(Select, { label: "Shift", value: shiftId, onChange: e => setShiftId(Number(e.target.value)), children: [_jsx(MenuItem, { value: "", children: _jsx("em", { children: "Select" }) }), shifts.map(s => _jsx(MenuItem, { value: s.id, children: s.name }, s.id))] })] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Firm" }), _jsxs(Select, { label: "Firm", value: firmId, onChange: e => setFirmId(Number(e.target.value)), children: [_jsx(MenuItem, { value: "", children: _jsx("em", { children: "Select" }) }), firms.map((f) => _jsx(MenuItem, { value: f.id, children: f.name }, f.id))] })] }) })] }) }) }), _jsx(Card, { children: _jsxs(CardContent, { children: [_jsxs(Grid, { container: true, spacing: 2, children: [_jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Metallic" }), _jsxs(Select, { label: "Metallic", value: form.metallic_id, onChange: e => setForm({ ...form, metallic_id: Number(e.target.value) }), children: [_jsx(MenuItem, { value: 0, children: _jsx("em", { children: "Select" }) }), metallics.map(m => _jsx(MenuItem, { value: m.id, children: m.name }, m.id))] })] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Cut" }), _jsxs(Select, { label: "Cut", value: form.cut_id, onChange: e => setForm({ ...form, cut_id: Number(e.target.value) }), children: [_jsx(MenuItem, { value: 0, children: _jsx("em", { children: "Select" }) }), cuts.map(c => _jsx(MenuItem, { value: c.id, children: c.name }, c.id))] })] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Operator" }), _jsxs(Select, { label: "Operator", value: form.operator_id, onChange: e => setForm({ ...form, operator_id: Number(e.target.value) }), children: [_jsx(MenuItem, { value: 0, children: _jsx("em", { children: "Select" }) }), employees.filter(e => e.role_operator).map(e => _jsx(MenuItem, { value: e.id, children: e.name }, e.id))] })] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Helper" }), _jsxs(Select, { label: "Helper", value: form.helper_id || '', onChange: e => setForm({ ...form, helper_id: e.target.value ? Number(e.target.value) : null }), children: [_jsx(MenuItem, { value: "", children: _jsx("em", { children: "None" }) }), employees.filter(e => e.role_helper).map(e => _jsx(MenuItem, { value: e.id, children: e.name }, e.id))] })] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Bob Type" }), _jsxs(Select, { label: "Bob Type", value: form.bob_type_id, onChange: e => setForm({ ...form, bob_type_id: Number(e.target.value) }), children: [_jsx(MenuItem, { value: 0, children: _jsx("em", { children: "Select" }) }), bobTypes.map(b => _jsxs(MenuItem, { value: b.id, children: [b.name, " (", b.weight_kg, " kg)"] }, b.id))] })] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Box Type" }), _jsxs(Select, { label: "Box Type", value: form.box_type_id, onChange: e => setForm({ ...form, box_type_id: Number(e.target.value) }), children: [_jsx(MenuItem, { value: 0, children: _jsx("em", { children: "Select" }) }), boxTypes.map(b => _jsxs(MenuItem, { value: b.id, children: [b.name, " (", b.weight_kg, " kg)"] }, b.id))] })] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsx(TextField, { fullWidth: true, label: "Bob Qty", type: "number", value: form.bob_qty, onChange: e => setForm({ ...form, bob_qty: Number(e.target.value) }), inputProps: { min: 0 } }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsx(TextField, { fullWidth: true, label: "Gross Weight (kg)", type: "number", value: form.gross_wt, onChange: e => setForm({ ...form, gross_wt: Number(e.target.value) }), inputProps: { min: 0, step: 0.001 } }) })] }), _jsx(Box, { sx: { mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }, children: _jsxs(Grid, { container: true, spacing: 2, children: [_jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(Typography, { variant: "body2", color: "textSecondary", children: ["Bob Weight: ", bobWt.toFixed(3), " kg"] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(Typography, { variant: "body2", color: "textSecondary", children: ["Box Weight: ", boxWt.toFixed(3), " kg"] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(Typography, { variant: "body2", color: "textSecondary", children: ["Tare Weight: ", tare.toFixed(3), " kg"] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(Typography, { variant: "body2", color: "textSecondary", children: ["Net Weight: ", net.toFixed(3), " kg"] }) })] }) }), _jsx(Stack, { direction: "row", justifyContent: "flex-end", sx: { mt: 2 }, children: _jsx(Grid, { item: true, xs: 12, sm: 2, children: _jsx(Button, { fullWidth: true, onClick: addToBasket, children: "Add to Basket" }) }) })] }) }), _jsx(Card, { children: _jsxs(CardContent, { children: [_jsx(Typography, { variant: "h6", gutterBottom: true, children: "Basket" }), reservedChallanNo && (_jsx(Box, { sx: { mb: 2, p: 2, bgcolor: 'primary.50', borderRadius: 1, border: '1px solid', borderColor: 'primary.200' }, children: _jsxs(Typography, { variant: "body2", color: "primary.700", children: [_jsx("strong", { children: "Reserved Challan Number:" }), " ", reservedChallanNo, _jsx("br", {}), _jsx("small", { children: "This number will be used for all items in this basket" })] }) })), _jsx(TableContainer, { component: Paper, children: _jsxs(Table, { size: "small", children: [_jsx(TableHead, { children: _jsxs(TableRow, { children: [_jsx(TableCell, { children: "#" }), _jsx(TableCell, { children: "Metallic" }), _jsx(TableCell, { children: "Cut" }), _jsx(TableCell, { children: "Bob" }), _jsx(TableCell, { children: "Box" }), _jsx(TableCell, { align: "right", children: "Qty" }), _jsx(TableCell, { align: "right", children: "Gross" }), _jsx(TableCell, { align: "right", children: "Tare" }), _jsx(TableCell, { align: "right", children: "Net" }), _jsx(TableCell, { align: "right" })] }) }), _jsxs(TableBody, { children: [basket.map((b, i) => {
+    return (_jsxs(Stack, { spacing: 2, children: [_jsx(Typography, { variant: "h5", children: "Generate Challan" }), _jsx(Card, { children: _jsx(CardContent, { children: _jsxs(Grid, { container: true, spacing: 2, children: [_jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsx(TextField, { fullWidth: true, label: "Date", type: "date", value: date, onChange: e => setDate(e.target.value), InputLabelProps: { shrink: true } }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Customer" }), _jsxs(Select, { label: "Customer", value: customerId, onChange: e => setCustomerId(Number(e.target.value)), displayEmpty: true, renderValue: (selected) => {
+                                                if (selected === 0 || selected === '')
+                                                    return _jsx("em", { children: "Select" });
+                                                return customers.find(c => Number(c.id) === Number(selected))?.name || '';
+                                            }, children: [_jsx(MenuItem, { value: 0, children: _jsx("em", { children: "Select" }) }), customers.map(c => _jsx(MenuItem, { value: c.id, children: c.name }, c.id))] })] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Shift" }), _jsxs(Select, { label: "Shift", value: shiftId, onChange: e => setShiftId(Number(e.target.value)), displayEmpty: true, renderValue: (selected) => {
+                                                if (selected === 0 || selected === '')
+                                                    return _jsx("em", { children: "Select" });
+                                                return shifts.find(s => Number(s.id) === Number(selected))?.name || '';
+                                            }, children: [_jsx(MenuItem, { value: 0, children: _jsx("em", { children: "Select" }) }), shifts.map(s => _jsx(MenuItem, { value: s.id, children: s.name }, s.id))] })] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Firm" }), _jsxs(Select, { label: "Firm", value: firmId, onChange: e => setFirmId(Number(e.target.value)), displayEmpty: true, renderValue: (selected) => {
+                                                if (selected === 0 || selected === '')
+                                                    return _jsx("em", { children: "Select" });
+                                                return firms.find(f => Number(f.id) === Number(selected))?.name || '';
+                                            }, children: [_jsx(MenuItem, { value: 0, children: _jsx("em", { children: "Select" }) }), firms.map((f) => _jsx(MenuItem, { value: f.id, children: f.name }, f.id))] })] }) })] }) }) }), _jsx(Card, { children: _jsxs(CardContent, { children: [_jsxs(Grid, { container: true, spacing: 2, children: [_jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Metallic" }), _jsxs(Select, { label: "Metallic", value: form.metallic_id, onChange: e => setForm({ ...form, metallic_id: Number(e.target.value) }), children: [_jsx(MenuItem, { value: 0, children: _jsx("em", { children: "Select" }) }), metallics.map(m => _jsx(MenuItem, { value: m.id, children: m.name }, m.id))] })] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Cut" }), _jsxs(Select, { label: "Cut", value: form.cut_id, onChange: e => setForm({ ...form, cut_id: Number(e.target.value) }), children: [_jsx(MenuItem, { value: 0, children: _jsx("em", { children: "Select" }) }), cuts.map(c => _jsx(MenuItem, { value: c.id, children: c.name }, c.id))] })] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Operator" }), _jsxs(Select, { label: "Operator", value: form.operator_id, onChange: e => setForm({ ...form, operator_id: Number(e.target.value) }), children: [_jsx(MenuItem, { value: 0, children: _jsx("em", { children: "Select" }) }), employees.filter(e => e.role_operator).map(e => _jsx(MenuItem, { value: e.id, children: e.name }, e.id))] })] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Helper" }), _jsxs(Select, { label: "Helper", value: form.helper_id, onChange: e => setForm({ ...form, helper_id: Number(e.target.value) }), displayEmpty: true, renderValue: (selected) => {
+                                                    if (selected === 0 || selected === '')
+                                                        return _jsx("em", { children: "None" });
+                                                    return employees.find(emp => Number(emp.id) === Number(selected))?.name || '';
+                                                }, children: [_jsx(MenuItem, { value: 0, children: _jsx("em", { children: "None" }) }), employees.filter(e => e.role_helper).map(e => _jsx(MenuItem, { value: e.id, children: e.name }, e.id))] })] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Bob Type" }), _jsxs(Select, { label: "Bob Type", value: form.bob_type_id, onChange: e => setForm({ ...form, bob_type_id: Number(e.target.value) }), children: [_jsx(MenuItem, { value: 0, children: _jsx("em", { children: "Select" }) }), bobTypes.map(b => _jsxs(MenuItem, { value: b.id, children: [b.name, " (", b.weight_kg, " kg)"] }, b.id))] })] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(FormControl, { fullWidth: true, children: [_jsx(InputLabel, { children: "Box Type" }), _jsxs(Select, { label: "Box Type", value: form.box_type_id, onChange: e => setForm({ ...form, box_type_id: Number(e.target.value) }), children: [_jsx(MenuItem, { value: 0, children: _jsx("em", { children: "Select" }) }), boxTypes.map(b => _jsxs(MenuItem, { value: b.id, children: [b.name, " (", b.weight_kg, " kg)"] }, b.id))] })] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsx(TextField, { fullWidth: true, label: "Bob Qty", type: "number", value: form.bob_qty, onChange: e => setForm({ ...form, bob_qty: Number(e.target.value) }), inputProps: { min: 0 } }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsx(TextField, { fullWidth: true, label: "Gross Weight (kg)", type: "number", value: form.gross_wt, onChange: e => setForm({ ...form, gross_wt: Number(e.target.value) }), inputProps: { min: 0, step: 0.001 } }) })] }), _jsx(Box, { sx: { mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }, children: _jsxs(Grid, { container: true, spacing: 2, children: [_jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(Typography, { variant: "body2", color: "textSecondary", children: ["Bob Weight: ", bobWt.toFixed(3), " kg"] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(Typography, { variant: "body2", color: "textSecondary", children: ["Box Weight: ", boxWt.toFixed(3), " kg"] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(Typography, { variant: "body2", color: "textSecondary", children: ["Tare Weight: ", tare.toFixed(3), " kg"] }) }), _jsx(Grid, { item: true, xs: 12, sm: 3, children: _jsxs(Typography, { variant: "body2", color: "textSecondary", children: ["Net Weight: ", net.toFixed(3), " kg"] }) })] }) }), _jsx(Stack, { direction: "row", justifyContent: "flex-end", sx: { mt: 2 }, children: _jsx(Grid, { item: true, xs: 12, sm: 2, children: _jsx(Button, { fullWidth: true, onClick: addToBasket, children: "Add to Basket" }) }) })] }) }), _jsx(Card, { children: _jsxs(CardContent, { children: [_jsx(Typography, { variant: "h6", gutterBottom: true, children: "Basket" }), reservedChallanNo && (_jsx(Box, { sx: { mb: 2, p: 2, bgcolor: 'primary.50', borderRadius: 1, border: '1px solid', borderColor: 'primary.200' }, children: _jsxs(Typography, { variant: "body2", color: "primary.700", children: [_jsx("strong", { children: "Reserved Challan Number:" }), " ", reservedChallanNo, _jsx("br", {}), _jsx("small", { children: "This number will be used for all items in this basket" })] }) })), _jsx(TableContainer, { component: Paper, children: _jsxs(Table, { size: "small", children: [_jsx(TableHead, { children: _jsxs(TableRow, { children: [_jsx(TableCell, { children: "#" }), _jsx(TableCell, { children: "Metallic" }), _jsx(TableCell, { children: "Cut" }), _jsx(TableCell, { children: "Bob" }), _jsx(TableCell, { children: "Box" }), _jsx(TableCell, { align: "right", children: "Qty" }), _jsx(TableCell, { align: "right", children: "Gross" }), _jsx(TableCell, { align: "right", children: "Tare" }), _jsx(TableCell, { align: "right", children: "Net" }), _jsx(TableCell, { align: "right" })] }) }), _jsxs(TableBody, { children: [basket.map((b, i) => {
                                                 const bobWt = weightOf(bobTypes, b.bob_type_id);
                                                 const boxWt = weightOf(boxTypes, b.box_type_id);
                                                 const t = round3((Number(b.bob_qty) || 0) * bobWt + boxWt);

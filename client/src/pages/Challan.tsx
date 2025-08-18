@@ -31,12 +31,12 @@ export function ChallanPage() {
   const [bobTypes, setBobTypes] = useState<Option[]>([])
   const [boxTypes, setBoxTypes] = useState<Option[]>([])
 
-  const [customerId, setCustomerId] = useState<number | ''>('' as any)
-  const [shiftId, setShiftId] = useState<number | ''>('' as any)
-  const [firmId, setFirmId] = useState<number | ''>('' as any)
+  const [customerId, setCustomerId] = useState<number>(0)
+  const [shiftId, setShiftId] = useState<number>(0)
+  const [firmId, setFirmId] = useState<number>(0)
   const [reservedChallanNo, setReservedChallanNo] = useState<number | null>(null)
 
-  const [form, setForm] = useState<FormState>({ metallic_id: 0, cut_id: 0, operator_id: 0, helper_id: null, bob_type_id: 0, box_type_id: 0, bob_qty: '', gross_wt: '' })
+  const [form, setForm] = useState<FormState>({ metallic_id: 0, cut_id: 0, operator_id: 0, helper_id: 0 as any, bob_type_id: 0, box_type_id: 0, bob_qty: '', gross_wt: '' })
   const [basket, setBasket] = useState<BasketItem[]>([])
 
   useEffect(() => { (async () => {
@@ -64,6 +64,85 @@ export function ChallanPage() {
   const boxWt = useMemo(() => weightOf(boxTypes, form.box_type_id), [JSON.stringify(boxTypes), form.box_type_id])
   const tare = useMemo(() => round3((Number(form.bob_qty) || 0) * bobWt + boxWt), [form.bob_qty, bobWt, boxWt])
   const net = useMemo(() => round3((Number(form.gross_wt) || 0) - tare), [form.gross_wt, tare])
+
+  const isDirty = useMemo(() => {
+    // helper to determine if a value should be considered "present"
+    const hasValue = (v: any) => {
+      if (v === null || v === undefined) return false
+      if (typeof v === 'number') return v !== 0
+      if (typeof v === 'string') return v.trim() !== ''
+      return true
+    }
+
+    // Consider fields dirty if any field except date has a non-empty value or basket has items
+    if (hasValue(customerId)) return true
+    if (hasValue(shiftId)) return true
+    if (hasValue(firmId)) return true
+    if (reservedChallanNo !== null) return true
+    if (basket.length > 0) return true
+    if (hasValue(form.metallic_id)) return true
+    if (hasValue(form.cut_id)) return true
+    if (hasValue(form.operator_id)) return true
+    if (hasValue(form.helper_id)) return true
+    if (hasValue(form.bob_type_id)) return true
+    if (hasValue(form.box_type_id)) return true
+    if (hasValue(form.bob_qty)) return true
+    if (hasValue(form.gross_wt)) return true
+    return false
+  }, [customerId, shiftId, firmId, reservedChallanNo, basket, form])
+
+  useEffect(() => {
+    // beforeunload for external navigation (reload/close)
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!isDirty) return
+      e.preventDefault()
+      e.returnValue = ''
+      return ''
+    }
+
+    window.addEventListener('beforeunload', onBeforeUnload)
+
+    // Intercept history navigation (client-side)
+    const originalPush = window.history.pushState
+    const originalReplace = window.history.replaceState
+
+    window.history.pushState = function () {
+      if (isDirty) {
+        const proceed = window.confirm('Entered data will be lost. Continue?')
+        if (!proceed) return
+      }
+      // @ts-ignore
+      return originalPush.apply(this, arguments)
+    }
+
+    window.history.replaceState = function () {
+      if (isDirty) {
+        const proceed = window.confirm('Entered data will be lost. Continue?')
+        if (!proceed) return
+      }
+      // @ts-ignore
+      return originalReplace.apply(this, arguments)
+    }
+
+    const onPopState = (e: PopStateEvent) => {
+      if (!isDirty) return
+      const proceed = window.confirm('Entered data will be lost. Continue?')
+      if (!proceed) {
+        // If user cancelled, push back the current location to prevent navigation
+        // This attempts to keep the user on the same page
+        window.history.pushState(null, '', window.location.pathname)
+      }
+    }
+
+    window.addEventListener('popstate', onPopState)
+
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload)
+      window.removeEventListener('popstate', onPopState)
+      window.history.pushState = originalPush
+      window.history.replaceState = originalReplace
+    }
+  }, [isDirty])
 
   function addToBasket() {
     // Validate required item fields before proceeding
@@ -244,8 +323,17 @@ export function ChallanPage() {
             <Grid item xs={12} sm={3}>
               <FormControl fullWidth>
                 <InputLabel>Customer</InputLabel>
-                <Select label="Customer" value={customerId} onChange={e => setCustomerId(Number(e.target.value))}>
-                  <MenuItem value=""><em>Select</em></MenuItem>
+                <Select
+                  label="Customer"
+                  value={customerId}
+                  onChange={e => setCustomerId(Number(e.target.value))}
+                  displayEmpty
+                  renderValue={(selected: any) => {
+                    if (selected === 0 || selected === '') return <em>Select</em>
+                    return customers.find(c => Number(c.id) === Number(selected))?.name || ''
+                  }}
+                >
+                  <MenuItem value={0}><em>Select</em></MenuItem>
                   {customers.map(c => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
                 </Select>
               </FormControl>
@@ -253,8 +341,17 @@ export function ChallanPage() {
             <Grid item xs={12} sm={3}>
               <FormControl fullWidth>
                 <InputLabel>Shift</InputLabel>
-                <Select label="Shift" value={shiftId} onChange={e => setShiftId(Number(e.target.value))}>
-                  <MenuItem value=""><em>Select</em></MenuItem>
+                <Select
+                  label="Shift"
+                  value={shiftId}
+                  onChange={e => setShiftId(Number(e.target.value))}
+                  displayEmpty
+                  renderValue={(selected: any) => {
+                    if (selected === 0 || selected === '') return <em>Select</em>
+                    return shifts.find(s => Number(s.id) === Number(selected))?.name || ''
+                  }}
+                >
+                  <MenuItem value={0}><em>Select</em></MenuItem>
                   {shifts.map(s => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
                 </Select>
               </FormControl>
@@ -262,8 +359,17 @@ export function ChallanPage() {
             <Grid item xs={12} sm={3}>
               <FormControl fullWidth>
                 <InputLabel>Firm</InputLabel>
-                <Select label="Firm" value={firmId} onChange={e => setFirmId(Number(e.target.value))}>
-                  <MenuItem value=""><em>Select</em></MenuItem>
+                <Select
+                  label="Firm"
+                  value={firmId}
+                  onChange={e => setFirmId(Number(e.target.value))}
+                  displayEmpty
+                  renderValue={(selected: any) => {
+                    if (selected === 0 || selected === '') return <em>Select</em>
+                    return firms.find(f => Number(f.id) === Number(selected))?.name || ''
+                  }}
+                >
+                  <MenuItem value={0}><em>Select</em></MenuItem>
                   {firms.map((f: any) => <MenuItem key={f.id} value={f.id}>{f.name}</MenuItem>)}
                 </Select>
               </FormControl>
@@ -305,8 +411,17 @@ export function ChallanPage() {
             <Grid item xs={12} sm={3}>
               <FormControl fullWidth>
                 <InputLabel>Helper</InputLabel>
-                <Select label="Helper" value={form.helper_id || ''} onChange={e => setForm({ ...form, helper_id: e.target.value ? Number(e.target.value) : null })}>
-                  <MenuItem value=""><em>None</em></MenuItem>
+                <Select
+                  label="Helper"
+                  value={form.helper_id}
+                  onChange={e => setForm({ ...form, helper_id: Number(e.target.value) })}
+                  displayEmpty
+                  renderValue={(selected: any) => {
+                    if (selected === 0 || selected === '') return <em>None</em>
+                    return employees.find(emp => Number(emp.id) === Number(selected))?.name || ''
+                  }}
+                >
+                  <MenuItem value={0}><em>None</em></MenuItem>
                   {employees.filter(e => e.role_helper).map(e => <MenuItem key={e.id} value={e.id}>{e.name}</MenuItem>)}
                 </Select>
               </FormControl>
