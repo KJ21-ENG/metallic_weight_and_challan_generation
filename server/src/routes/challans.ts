@@ -3,7 +3,7 @@ import dayjs from "dayjs";
 import { pool, withTransaction } from "../db";
 import { z } from "zod";
 import { computeNetKg, computeTareKg } from "../utils/weights";
-import { getNextSequence } from "../services/sequencing";
+import { getNextSequence, peekSequence } from "../services/sequencing";
 import { generateChallanPdf } from "../services/pdf";
 import fs from "fs";
 import path from "path";
@@ -15,6 +15,15 @@ export const challansRouter = Router();
 challansRouter.get("/next-number", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const nextNumber = await getNextSequence("challan_no");
+    res.json({ nextNumber });
+  } catch (err) { next(err); }
+});
+
+// Peek at next challan number without incrementing
+challansRouter.get("/peek-next-number", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const currentNumber = await peekSequence("challan_no");
+    const nextNumber = currentNumber + 1; // Calculate next without incrementing
     res.json({ nextNumber });
   } catch (err) { next(err); }
 });

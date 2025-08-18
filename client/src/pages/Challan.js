@@ -163,8 +163,8 @@ export function ChallanPage() {
             try {
                 let challanNo;
                 if (reservedChallanNo === null) {
-                    // First item in this basket - reserve a challan number
-                    const nextNumberRes = await api.get('/challans/next-number');
+                    // First item in this basket - peek at next challan number (don't reserve yet)
+                    const nextNumberRes = await api.get('/challans/peek-next-number');
                     challanNo = nextNumberRes.data.nextNumber;
                     setReservedChallanNo(challanNo);
                 }
