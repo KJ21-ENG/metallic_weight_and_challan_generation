@@ -18,7 +18,7 @@ export function ChallanPage() {
     const [shiftId, setShiftId] = useState('');
     const [firmId, setFirmId] = useState('');
     const [reservedChallanNo, setReservedChallanNo] = useState(null);
-    const [form, setForm] = useState({ metallic_id: 0, cut_id: 0, operator_id: 0, helper_id: null, bob_type_id: 0, box_type_id: 0, bob_qty: 0, gross_wt: 0 });
+    const [form, setForm] = useState({ metallic_id: 0, cut_id: 0, operator_id: 0, helper_id: null, bob_type_id: 0, box_type_id: 0, bob_qty: '', gross_wt: '' });
     const [basket, setBasket] = useState([]);
     useEffect(() => {
         (async () => {
@@ -52,7 +52,22 @@ export function ChallanPage() {
     const tare = useMemo(() => round3((Number(form.bob_qty) || 0) * bobWt + boxWt), [form.bob_qty, bobWt, boxWt]);
     const net = useMemo(() => round3((Number(form.gross_wt) || 0) - tare), [form.gross_wt, tare]);
     function addToBasket() {
-        setBasket([...basket, form]);
+        // Validate required item fields before proceeding
+        const missing = !form.metallic_id || !form.cut_id || !form.operator_id || !form.bob_type_id || !form.box_type_id || form.bob_qty === '' || form.gross_wt === '' || Number(form.bob_qty) <= 0 || Number(form.gross_wt) <= 0;
+        if (missing) {
+            return alert('Please fill all item fields (Metallic, Cut, Operator, Bob Type, Box Type, Bob Qty and Gross Weight) before adding to basket');
+        }
+        const itemForBasket = {
+            metallic_id: Number(form.metallic_id),
+            cut_id: Number(form.cut_id),
+            operator_id: Number(form.operator_id),
+            helper_id: form.helper_id ?? null,
+            bob_type_id: Number(form.bob_type_id),
+            box_type_id: Number(form.box_type_id),
+            bob_qty: Number(form.bob_qty),
+            gross_wt: Number(form.gross_wt),
+        };
+        setBasket([...basket, itemForBasket]);
         // Generate the actual barcode that will be stored in the database
         // We need to fetch the next challan number first (only if we don't have one reserved)
         const generateAndPrintLabel = async () => {
@@ -75,7 +90,7 @@ export function ChallanPage() {
                 const itemStr = String(itemIndex).padStart(2, '0');
                 const actualBarcode = `CH-${yy}-${challanStr}-${itemStr}`;
                 // Print label for the added item
-                const item = form; // Use the current form data
+                const item = itemForBasket; // Use the validated item data
                 const firmName = firmId ? firms.find(f => Number(f.id) === Number(firmId))?.name || 'FIRM NAME' : 'FIRM NAME';
                 const labelData = {
                     header: firmName, // Use firmName for header
@@ -116,7 +131,7 @@ export function ChallanPage() {
                 const itemIndex = basket.length + 1;
                 const yy = dayjs(date).format('YY');
                 const fallbackBarcode = `CH-${yy}-XXXXXX-${String(itemIndex).padStart(2, '0')}`;
-                const item = form;
+                const item = itemForBasket;
                 const firmNameFallback = firmId ? firms.find(f => Number(f.id) === Number(firmId))?.name || 'FIRM NAME' : 'FIRM NAME';
                 const labelData = {
                     header: firmNameFallback, // Use firmName for header
@@ -143,8 +158,8 @@ export function ChallanPage() {
         // Reset only the weight-related fields for next entry, keep other selections
         setForm(prevForm => ({
             ...prevForm,
-            bob_qty: 0,
-            gross_wt: 0
+            bob_qty: '',
+            gross_wt: ''
         }));
     }
     function removeFromBasket(index) {
