@@ -32,8 +32,10 @@ export async function generateChallanPdf(options: {
   shiftName: string;
   items: ChallanItem[];
   firm?: { id: number; name: string; address?: string | null; gstin?: string | null; mobile?: string | null; email?: string | null };
+  lotNumber?: string | number | null;
+  pendingWeightKg?: number | null;
 }): Promise<{ absolutePath: string; relativePath: string }> {
-  const { challanNo, dateISO, customer, shiftName, items, firm } = options;
+  const { challanNo, dateISO, customer, shiftName, items, firm, lotNumber, pendingWeightKg } = options;
 
   const date = dayjs(dateISO);
   const yearYY = date.format("YY");
@@ -51,7 +53,7 @@ export async function generateChallanPdf(options: {
   const doc = new PDFDocument({ 
     size: "A4",
     layout: "landscape",
-    margin: 28,
+    margin: 15, // Reduced margin for more space
     autoFirstPage: true
   });
   
@@ -63,170 +65,182 @@ export async function generateChallanPdf(options: {
   const lightText = "#111111";
   const grayText = "#444444";
 
-  // Dimensions
-  const pageLeft = doc.page.margins.left;
-  const pageRight = doc.page.width - doc.page.margins.right;
-  const gutter = 10;
-  const halfWidth = (pageRight - pageLeft - gutter) / 2;
-  const topY = 50;
+  // Page dimensions (A4 landscape)
+  const pageWidth = doc.page.width;
+  const pageHeight = doc.page.height;
+  const margin = 15;
+  
+  // Calculate safe drawing area
+  const safeWidth = pageWidth - (margin * 2);
+  const safeHeight = pageHeight - (margin * 2);
+  
+  // Split into two equal halves with gutter
+  const gutter = 12;
+  const halfWidth = (safeWidth - gutter) / 2;
+  const halfHeight = safeHeight;
+  
+  // Starting positions
+  const leftX = margin;
+  const rightX = margin + halfWidth + gutter;
+  const startY = margin;
 
-  // Cut line in the middle
-  const midX = pageLeft + halfWidth + gutter / 2;
+  // Draw center divider line
+  const centerX = margin + halfWidth + (gutter / 2);
   doc.save();
   doc.lineWidth(0.5).dash(3, { space: 3 }).strokeColor("#9CA3AF");
-  doc.moveTo(midX, topY - 20).lineTo(midX, doc.page.height - 40).stroke();
+  doc.moveTo(centerX, startY).lineTo(centerX, startY + halfHeight).stroke();
   doc.undash();
   doc.restore();
 
+  // Function to draw one half (ORIGINAL or COPY)
   function drawHalf(originX: number, watermark: string) {
     const boxX = originX;
-    const boxY = topY;
-    const boxW = halfWidth - gutter / 2;
-    const boxH = doc.page.height - topY - 40;
+    const boxY = startY;
+    const boxW = halfWidth;
+    const boxH = halfHeight;
 
-    // Outer border
+    // Draw outer border
     doc.rect(boxX, boxY, boxW, boxH).stroke(borderColor);
 
-    // Watermark
+    // Watermark (centered and rotated)
     doc.save();
     doc.opacity(0.08);
     doc.fillColor("#000000");
     const centerX = boxX + boxW / 2;
     const centerY = boxY + boxH / 2;
     doc.rotate(-30, { origin: [centerX, centerY] });
-    doc.font("Helvetica-Bold").fontSize(48).text(watermark, centerX - 120, centerY - 30, { width: 240, align: "center" });
+    doc.font("Helvetica-Bold").fontSize(32).text(watermark, centerX - 70, centerY - 15, { width: 140, align: "center" });
     doc.restore();
 
     // Title
-    doc.font("Helvetica-Bold").fontSize(16).fillColor(lightText).text("Delivery Challan", boxX, boxY + 10, { width: boxW, align: "center" });
+    doc.font("Helvetica-Bold").fontSize(14).fillColor(lightText).text("Delivery Challan", boxX, boxY + 8, { width: boxW, align: "center" });
 
     // Challan No and Date row
-    const infoY = boxY + 38;
-    doc.rect(boxX + 8, infoY, boxW - 16, 28).stroke(borderColor);
-    doc.font("Helvetica").fontSize(9).fillColor(grayText);
-    doc.text(`Challan No: ${String(challanNo).padStart(6, "0")}`, boxX + 16, infoY + 8);
-    doc.text(`Date: ${date.format("DD/MM/YYYY")}`, boxX + boxW / 2, infoY + 8);
+    const infoY = boxY + 32;
+    doc.rect(boxX + 6, infoY, boxW - 12, 24).stroke(borderColor);
+    doc.font("Helvetica").fontSize(8).fillColor(grayText);
+    doc.text(`Challan No: ${String(challanNo).padStart(6, "0")}`, boxX + 12, infoY + 6);
+    doc.text(`Date: ${date.format("DD/MM/YYYY")}`, boxX + boxW / 2, infoY + 6);
 
-    // Shift & Customer small line
-    const smallY = infoY + 34;
-    doc.text(`Shift: ${shiftName}`, boxX + 16, smallY);
+    // Shift & Customer info
+    const smallY = infoY + 30;
+    doc.text(`Shift: ${shiftName}`, boxX + 12, smallY);
     doc.text(`Customer: ${customer.name}`, boxX + boxW / 2, smallY);
 
     // From / To boxes
-    const partyY = smallY + 10;
-    const colW = (boxW - 24) / 2;
-    doc.rect(boxX + 8, partyY, colW, 64).stroke(borderColor);
-    doc.rect(boxX + 16 + colW, partyY, colW, 64).stroke(borderColor);
+    const partyY = smallY + 14;
+    const colW = (boxW - 18) / 2;
+    doc.rect(boxX + 6, partyY, colW, 48).stroke(borderColor);
+    doc.rect(boxX + 12 + colW, partyY, colW, 48).stroke(borderColor);
 
-    doc.font("Helvetica-Bold").fontSize(9).fillColor(lightText).text("From:", boxX + 12, partyY + 6);
-    doc.font("Helvetica").fontSize(9).fillColor(lightText);
-    const firmName = firm?.name || "";
+    // From section
+    doc.font("Helvetica-Bold").fontSize(8).fillColor(lightText).text("From:", boxX + 10, partyY + 4);
+    doc.font("Helvetica").fontSize(8).fillColor(lightText);
+    const firmName = firm?.name || "Company Name";
     const firmAddr = firm?.address || "";
-    const firmGstin = firm?.gstin ? `GSTIN: ${firm.gstin}` : "";
-    const firmMobile = firm?.mobile ? `Mo: ${firm.mobile}` : "";
-    const firmEmail = firm?.email ? `Email: ${firm.email}` : "";
-    doc.text(firmName, boxX + 12, partyY + 20);
-    if (firmAddr) doc.text(firmAddr, boxX + 12, partyY + 32, { width: colW - 12 });
-    if (firmGstin) doc.text(firmGstin, boxX + 12, partyY + 50, { width: colW - 12 });
-    if (firmMobile) doc.text(firmMobile, boxX + 12, partyY + 62, { width: colW - 12 });
-    if (firmEmail) doc.text(firmEmail, boxX + 12, partyY + 74, { width: colW - 12 });
+    doc.text(firmName, boxX + 10, partyY + 16);
+    if (firmAddr) doc.text(firmAddr, boxX + 10, partyY + 26, { width: colW - 12 });
 
-    doc.font("Helvetica-Bold").fontSize(9).fillColor(lightText).text("To:", boxX + 20 + colW, partyY + 6);
-    doc.font("Helvetica").fontSize(9).fillColor(lightText);
-    doc.text(customer.name, boxX + 20 + colW, partyY + 20, { width: colW - 12 });
-    if (customer.address) doc.text(String(customer.address), boxX + 20 + colW, partyY + 32, { width: colW - 12 });
-    if (customer.gstin) doc.text(`GSTIN: ${customer.gstin}`, boxX + 20 + colW, partyY + 56, { width: colW - 12 });
+    // To section
+    doc.font("Helvetica-Bold").fontSize(8).fillColor(lightText).text("To:", boxX + 18 + colW, partyY + 4);
+    doc.font("Helvetica").fontSize(8).fillColor(lightText);
+    doc.text(customer.name, boxX + 18 + colW, partyY + 16, { width: colW - 12 });
+    if (customer.address) doc.text(String(customer.address), boxX + 18 + colW, partyY + 26, { width: colW - 12 });
 
-    // Table: two sets of 30 rows each
-    const tableY = partyY + 80;
-    const colSr = 0.07 * (boxW - 16);
-    const colDetails = 0.53 * (boxW - 16);
-    const colNet = 0.20 * (boxW - 16);
-    const colQty = 0.20 * (boxW - 16);
+    // LOT NO and Pending Weight - positioned below the From/To boxes
+    const lotY = partyY + 54;
+    const lotDisplay = String(lotNumber ?? "-");
+    const pendingWeightDisplay = (pendingWeightKg !== null && pendingWeightKg !== undefined) ? `${Number(pendingWeightKg).toFixed(2)} kg` : "-";
+    
+    doc.font("Helvetica-Bold").fontSize(8).fillColor(lightText).text(`LOT NO:- ${lotDisplay}`, boxX + 10, lotY);
+    doc.font("Helvetica").fontSize(8).fillColor(grayText).text(`(Total Pending Weight: ${pendingWeightDisplay})`, boxX + boxW - 140, lotY, { width: 130, align: "right" });
 
-    // Header row
-    doc.rect(boxX + 8, tableY, boxW - 16, 18).stroke(borderColor);
-    doc.font("Helvetica-Bold").fontSize(9).fillColor(lightText);
-    let cx = boxX + 8;
-    doc.text("Sr", cx, tableY + 4, { width: colSr, align: "center" }); cx += colSr;
-    doc.text("Details", cx, tableY + 4, { width: colDetails, align: "center" }); cx += colDetails;
-    doc.text("Net.WT", cx, tableY + 4, { width: colNet, align: "center" }); cx += colNet;
-    doc.text("Quantity", cx, tableY + 4, { width: colQty, align: "center" });
+    // Table setup - start below LOT NO
+    const tableY = lotY + 16;
+    const headerH = 16;
+    const totalH = 16;
+    const maxRowsPerBlock = 20;
 
-    // Helper to draw a block of rows (30 rows capacity)
-    function drawRows(startIndex: number, yStart: number) {
+    // Reserve space for signatures and margins
+    const signatureSpace = 60;
+
+    // We'll render two columns side-by-side inside the half: left (1-20) and right (21-40)
+    const spacingBetweenColumns = 12;
+    const colBlockW = (boxW - 12 - spacingBetweenColumns) / 2; // width for each column block
+
+    // Compute available vertical space for rows inside a column block
+    const availableHeightForRows = boxH - (tableY - boxY) - signatureSpace - headerH - totalH; // space for rows
+    let rowH = Math.floor(availableHeightForRows / maxRowsPerBlock);
+    if (rowH < 10) rowH = 10;
+    if (rowH > 18) rowH = 18;
+
+    // Column widths inside a block
+    const innerColSr = 0.08 * (colBlockW - 6);
+    const innerColDetails = 0.52 * (colBlockW - 6);
+    const innerColNet = 0.20 * (colBlockW - 6);
+    const innerColQty = 0.20 * (colBlockW - 6);
+
+    function drawColumn(startIndex: number, originX: number, yStart: number) {
       let rowY = yStart;
       let total = { qty: 0, net: 0 };
-      doc.font("Helvetica").fontSize(9).fillColor(lightText);
-      for (let i = 0; i < 30; i++) {
+
+      // Header
+      doc.rect(originX, rowY, colBlockW, headerH).stroke(borderColor);
+      doc.font("Helvetica-Bold").fontSize(8).fillColor(lightText);
+      doc.text("Sr", originX + 2, rowY + 4, { width: innerColSr, align: "center" });
+      doc.text("Details", originX + 2 + innerColSr, rowY + 4, { width: innerColDetails, align: "center" });
+      doc.text("Net.WT", originX + 2 + innerColSr + innerColDetails, rowY + 4, { width: innerColNet, align: "center" });
+      doc.text("Bobbins", originX + 2 + innerColSr + innerColDetails + innerColNet, rowY + 4, { width: innerColQty, align: "center" });
+
+      rowY += headerH;
+
+      for (let i = 0; i < maxRowsPerBlock; i++) {
         const idx = startIndex + i;
-        doc.rect(boxX + 8, rowY, boxW - 16, 18).stroke(borderColor);
-        let x = boxX + 8;
+        if (rowY + rowH > boxY + boxH - signatureSpace - totalH) break;
+        doc.rect(originX, rowY, colBlockW, rowH).stroke(borderColor);
         if (idx < items.length) {
           const it = items[idx];
           const details = `${it.metallic_name} - ${it.cut_name}`;
-          doc.text(String(idx + 1).padStart(2, "0"), x, rowY + 3, { width: colSr, align: "center" }); x += colSr;
-          doc.text(details, x + 4, rowY + 3, { width: colDetails - 8 }); x += colDetails;
-          doc.text(it.net_wt.toFixed(3), x, rowY + 3, { width: colNet, align: "center" }); x += colNet;
-          doc.text(String(it.bob_qty), x, rowY + 3, { width: colQty, align: "center" });
+          doc.font("Helvetica").fontSize(8).fillColor(lightText);
+          doc.text(String(idx + 1).padStart(2, "0"), originX + 2, rowY + 4, { width: innerColSr, align: "center" });
+          doc.text(details, originX + 2 + innerColSr, rowY + 4, { width: innerColDetails - 4 });
+          doc.text(it.net_wt.toFixed(3), originX + 2 + innerColSr + innerColDetails, rowY + 4, { width: innerColNet, align: "center" });
+          doc.text(String(it.bob_qty), originX + 2 + innerColSr + innerColDetails + innerColNet, rowY + 4, { width: innerColQty, align: "center" });
           total.qty += it.bob_qty; total.net += it.net_wt;
-        } else {
-          // Empty row placeholders
-          x += colSr + colDetails + colNet + colQty;
         }
-        rowY += 18;
+        rowY += rowH;
       }
+
+      // Do not draw per-column total here; return totals so caller can render combined total
       return { y: rowY, total };
     }
 
-    // First set of 30
-    const first = drawRows(0, tableY + 18);
-    // Totals for first block
-    doc.rect(boxX + 8, first.y, boxW - 16, 18).stroke(borderColor);
-    let tx = boxX + 8;
-    doc.font("Helvetica-Bold").text("Total", tx, first.y + 3, { width: colSr + colDetails, align: "right" });
-    tx += colSr + colDetails;
-    doc.text(first.total.net.toFixed(3) + " kg", tx, first.y + 3, { width: colNet, align: "center" });
-    tx += colNet;
-    doc.text(String(first.total.qty), tx, first.y + 3, { width: colQty, align: "center" });
+    const leftColX = boxX + 6;
+    const rightColX = leftColX + colBlockW + spacingBetweenColumns;
+    const firstCol = drawColumn(0, leftColX, tableY);
+    const secondCol = drawColumn(20, rightColX, tableY);
 
-    // Second header
-    const header2Y = first.y + 30;
-    doc.rect(boxX + 8, header2Y, boxW - 16, 18).stroke(borderColor);
+    // Combined totals (both columns) - display outside the inner column boxes in bold
+    const combinedNet = Number((firstCol.total.net || 0) + (secondCol.total.net || 0));
+    const combinedQty = Number((firstCol.total.qty || 0) + (secondCol.total.qty || 0));
+    const totalsY = Math.min(boxY + boxH - 60, Math.max(firstCol.y, secondCol.y) + 6);
     doc.font("Helvetica-Bold").fontSize(9).fillColor(lightText);
-    cx = boxX + 8;
-    doc.text("Sr", cx, header2Y + 4, { width: colSr, align: "center" }); cx += colSr;
-    doc.text("Details", cx, header2Y + 4, { width: colDetails, align: "center" }); cx += colDetails;
-    doc.text("Net.WT", cx, header2Y + 4, { width: colNet, align: "center" }); cx += colNet;
-    doc.text("Quantity", cx, header2Y + 4, { width: colQty, align: "center" });
+    doc.text(`Total Weight: ${combinedNet.toFixed(3)} kg`, boxX + 10, totalsY);
+    doc.text(`Total Bobbins: ${combinedQty} PCS`, boxX + boxW - 180, totalsY, { width: 170, align: "right" });
 
-    // Second set of 30
-    const second = drawRows(30, header2Y + 18);
-    // Totals for second block
-    doc.rect(boxX + 8, second.y, boxW - 16, 18).stroke(borderColor);
-    tx = boxX + 8;
-    doc.font("Helvetica-Bold").text("Total", tx, second.y + 3, { width: colSr + colDetails, align: "right" });
-    tx += colSr + colDetails;
-    doc.text(second.total.net.toFixed(3) + " kg", tx, second.y + 3, { width: colNet, align: "center" });
-    tx += colNet;
-    doc.text(String(second.total.qty), tx, second.y + 3, { width: colQty, align: "center" });
-
-    // Signatures below second block
-    const sigY = second.y + 24;
-    doc.font("Helvetica").fontSize(9).fillColor(lightText);
-    doc.text("Received By (Customer Sign):", boxX + 12, sigY);
-    
-    // Use firm name if available, otherwise use generic text
+    // Signatures at bottom (placed below combined totals)
+    const sigY = Math.min(boxY + boxH - 30, totalsY + 26);
+    doc.font("Helvetica").fontSize(8).fillColor(lightText);
+    doc.text("Received By:", boxX + 10, sigY);
+    doc.text("___________________", boxX + 10, sigY + 14);
     const authorizedSignText = firm ? `Authorized Sign (${firm.name}):` : "Authorized Sign:";
-    doc.text(authorizedSignText, boxX + boxW - 210, sigY, { width: 200, align: "right" });
-    
-    doc.text("___________________", boxX + 12, sigY + 16);
-    doc.text("___________________", boxX + boxW - 210, sigY + 16, { width: 200, align: "right" });
+    doc.text(authorizedSignText, boxX + boxW - 130, sigY, { width: 120, align: "right" });
+    doc.text("___________________", boxX + boxW - 130, sigY + 14, { width: 120, align: "right" });
   }
 
-  // Draw left (ORIGINAL) and right (COPY)
-  drawHalf(pageLeft, "ORIGINAL");
-  drawHalf(pageLeft + halfWidth + gutter, "COPY");
+  // Draw both halves
+  drawHalf(leftX, "ORIGINAL");
+  drawHalf(rightX, "COPY");
 
   doc.end();
 
