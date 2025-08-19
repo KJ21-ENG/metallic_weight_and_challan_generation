@@ -51,7 +51,11 @@ masterRouter.post("/:type", async (req: Request, res: Response, next: NextFuncti
     }
 
     if (table === "customers") {
-      const schema = z.object({ name: z.string().min(1), address: z.string().optional(), gstin: z.string().optional() });
+      const schema = z.object({ 
+        name: z.string().min(1), 
+        address: z.string().optional().nullable(), 
+        gstin: z.string().optional().nullable() 
+      });
       const { name, address = null, gstin = null } = schema.parse(req.body);
       const result = await pool.query(
         `insert into customers (name, address, gstin) values ($1, $2, $3) returning *`,
@@ -114,7 +118,11 @@ masterRouter.put("/:type/:id", async (req: Request, res: Response, next: NextFun
     }
 
     if (table === "customers") {
-      const schema = z.object({ name: z.string().min(1), address: z.string().optional(), gstin: z.string().optional() });
+      const schema = z.object({ 
+        name: z.string().min(1), 
+        address: z.string().optional().nullable(), 
+        gstin: z.string().optional().nullable() 
+      });
       const { name, address = null, gstin = null } = schema.parse(req.body);
       const result = await pool.query(
         `update customers set name=$1, address=$2, gstin=$3, updated_at=now() where id=$4 returning *`,
