@@ -1,54 +1,12 @@
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { useState } from 'react';
-import { Button, IconButton, Menu, MenuItem, ListItemText, FormControlLabel, Switch, TextField } from '@mui/material';
-import SettingsIcon from '@mui/icons-material/Settings';
-const STORAGE_KEY = 'catch_settings_v1';
-function loadSettings() {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw)
-            return { enabled: true, precision: 3 };
-        return JSON.parse(raw);
-    }
-    catch {
-        return { enabled: true, precision: 3 };
-    }
-}
-function saveSettings(s) { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
+import { jsx as _jsx } from "react/jsx-runtime";
+import { Button } from '@mui/material';
 export const Catch = ({ disabled, onCatch }) => {
-    const [anchorEl, setAnchorEl] = useState(null);
-    const [settings, setSettings] = useState(() => loadSettings());
-    const open = Boolean(anchorEl);
-    const handleOpenSettings = (e) => setAnchorEl(e.currentTarget);
-    const handleCloseSettings = () => setAnchorEl(null);
-    const handleToggleEnabled = (_, v) => {
-        const next = { ...settings, enabled: v };
-        setSettings(next);
-        saveSettings(next);
-    };
-    const handlePrecisionChange = (e) => {
-        const p = Math.max(0, Math.min(6, Number(e.target.value || 0)));
-        const next = { ...settings, precision: p };
-        setSettings(next);
-        saveSettings(next);
-    };
     const round = (n) => {
-        const p = Number(settings.precision || 3);
-        const m = Math.pow(10, p);
-        // ensure numeric rounding to configured precision
+        // Hardcoded to 3 decimal places as requested
+        const m = Math.pow(10, 3);
         return Math.round((Number.isFinite(n) ? n : 0) * m) / m;
     };
     const performCatch = async () => {
-        if (!settings.enabled) {
-            // fallback to manual prompt
-            const val = window.prompt('Enter weight (kg):');
-            if (!val)
-                return;
-            const num = Number(val);
-            if (Number.isFinite(num))
-                onCatch(round(num));
-            return;
-        }
         try {
             // Try Electron captureWeight API first if available
             // Prefer using the typed helpers exposed in preload
@@ -96,6 +54,6 @@ export const Catch = ({ disabled, onCatch }) => {
         if (Number.isFinite(num))
             onCatch(round(num));
     };
-    return (_jsxs("div", { style: { display: 'inline-flex', alignItems: 'center', gap: 8 }, children: [_jsx(Button, { size: "small", variant: "outlined", onClick: performCatch, disabled: disabled, children: "Catch" }), _jsx(IconButton, { size: "small", onClick: handleOpenSettings, "aria-label": "Catch settings", children: _jsx(SettingsIcon, { fontSize: "small" }) }), _jsxs(Menu, { anchorEl: anchorEl, open: open, onClose: handleCloseSettings, children: [_jsxs(MenuItem, { children: [_jsx(ListItemText, { primary: "Enable Scale" }), _jsx(FormControlLabel, { control: _jsx(Switch, { checked: !!settings.enabled, onChange: handleToggleEnabled }), label: "" })] }), _jsxs(MenuItem, { children: [_jsx(ListItemText, { primary: "Precision (decimals)" }), _jsx(TextField, { size: "small", type: "number", inputProps: { min: 0, max: 6 }, value: settings.precision, onChange: handlePrecisionChange, style: { width: 80 } })] })] })] }));
+    return (_jsx(Button, { size: "small", variant: "outlined", onClick: performCatch, disabled: disabled, children: "Catch" }));
 };
 export default Catch;
