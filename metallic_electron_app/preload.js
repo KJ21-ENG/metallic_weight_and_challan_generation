@@ -31,6 +31,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return false;
     }
   },
+
+  // Weight scale related helpers
+  weightScaleStatus: async () => { return await ipcRenderer.invoke('weight-scale-status'); },
+  connectWeightScale: async (opts) => { return await ipcRenderer.invoke('connect-weight-scale', opts); },
+  autoDetectWeightScale: async () => { return await ipcRenderer.invoke('auto-detect-weight-scale'); },
+  disconnectWeightScale: async () => { return await ipcRenderer.invoke('disconnect-weight-scale'); },
+  captureWeight: async () => { return await ipcRenderer.invoke('capture-weight'); },
+  getAvailablePorts: async () => { return await ipcRenderer.invoke('get-available-ports'); },
   
   // Test function to verify IPC is working
   test: async () => {

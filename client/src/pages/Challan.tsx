@@ -3,6 +3,7 @@ import dayjs from 'dayjs';
 import { api, getOptions } from '../api';
 import { printLabel, getLabelPrinter } from '../utils/printer';
 import { Box, Button, Card, CardContent, FormControl, Grid, InputLabel, MenuItem, Select, Stack, TextField, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
+import { Catch } from '../components/Catch'
 
 type Option = { id: number; name: string; weight_kg?: number; role_operator?: boolean; role_helper?: boolean }
 
@@ -38,6 +39,7 @@ export function ChallanPage() {
 
   const [form, setForm] = useState<FormState>({ metallic_id: 0, cut_id: 0, operator_id: 0, helper_id: 0 as any, bob_type_id: 0, box_type_id: 0, bob_qty: '', gross_wt: '' })
   const [basket, setBasket] = useState<BasketItem[]>([])
+  // (scale integration removed from UI)
 
   useEffect(() => { (async () => {
     const [c, s, m, cu, e, bt, bx, f] = await Promise.all([
@@ -269,6 +271,8 @@ export function ChallanPage() {
     }))
   }
 
+  // scale helpers removed
+
   function removeFromBasket(index: number) {
     const next = [...basket]
     next.splice(index, 1)
@@ -378,6 +382,8 @@ export function ChallanPage() {
         </CardContent>
       </Card>
 
+      {/* Scale controls removed */}
+
       <Card>
         <CardContent>
           <Grid container spacing={2}>
@@ -448,7 +454,13 @@ export function ChallanPage() {
               <TextField fullWidth label="Bob Qty" type="number" value={form.bob_qty} onChange={e => setForm({ ...form, bob_qty: Number(e.target.value) })} inputProps={{ min: 0 }} />
             </Grid>
             <Grid item xs={12} sm={3}>
-              <TextField fullWidth label="Gross Weight (kg)" type="number" value={form.gross_wt} onChange={e => setForm({ ...form, gross_wt: Number(e.target.value) })} inputProps={{ min: 0, step: 0.001 }} />
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <TextField fullWidth label="Gross Weight (kg)" type="number" value={form.gross_wt === '' ? '' : Number(form.gross_wt).toFixed(3)} onChange={e => {
+                  const v = e.target.value
+                  setForm({ ...form, gross_wt: v === '' ? '' : Number(parseFloat(v)) })
+                }} inputProps={{ min: 0, step: 0.001 }} />
+                <Catch onCatch={(w) => setForm({ ...form, gross_wt: Math.round(w * 1000) / 1000 })} disabled={false} />
+              </div>
             </Grid>
           </Grid>
 
