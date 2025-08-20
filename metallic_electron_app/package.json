@@ -33,6 +33,7 @@
     "appId": "com.metallic.challan",
     "productName": "Metallic Challan",
     "directories": { "output": "dist-app" },
+    "asar": false,
     "files": [
       "**/*",
       "!dist-app/**",
@@ -42,8 +43,10 @@
       { "from": "../client/dist", "to": "client-dist" },
       { "from": "../server/dist", "to": "server-dist" },
       { "from": "../server/node_modules", "to": "server-dist/node_modules" },
-      { "from": "../server/.env", "to": ".env" }
+      { "from": "../server/.env", "to": ".env" },
+      { "from": "../server/package.json", "to": "server-dist/package.json" }
     ],
+    "afterPack": "scripts/after-pack.js",
     "mac": { "target": [ { "target": "dmg", "arch": ["x64", "arm64"] } ] },
     "win": { "target": [ { "target": "nsis", "arch": ["x64"] } ] },
     "linux": { "target": [ "AppImage" ] }

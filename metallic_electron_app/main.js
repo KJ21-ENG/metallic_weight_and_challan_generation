@@ -2,6 +2,8 @@ const { app, BrowserWindow, shell, ipcMain } = require('electron');
 const path = require('path');
 const http = require('http');
 const { spawn } = require('child_process');
+const fs = require('fs');
+const { pathToFileURL } = require('url');
 
 let mainWindow;
 
@@ -412,24 +414,87 @@ async function waitForServer(url, timeoutMs = 20000) {
 
 let serverChild;
 
+function logToFile(message) {
+  try {
+    const logDir = app.getPath('userData');
+    const logFile = path.join(logDir, 'app.log');
+    const timestamp = new Date().toISOString();
+    fs.appendFileSync(logFile, `[${timestamp}] ${message}\n`);
+  } catch {}
+}
+
+function loadClientFromResources() {
+  try {
+    const clientIndex = `file://${path.join(process.resourcesPath, 'client-dist', 'index.html')}`;
+    if (mainWindow) mainWindow.loadURL(clientIndex);
+  } catch (e) {
+    console.error('Failed to load client from resources', e);
+    logToFile(`Failed to load client from resources: ${String(e && e.stack || e)}`);
+  }
+}
+
 async function startProductionServerAndLoad() {
   // In production, spawn the compiled server from extraResources
   const serverDistPath = path.join(process.resourcesPath, 'server-dist');
   const serverMain = path.join(serverDistPath, 'index.js');
-  serverChild = spawn(process.execPath, [serverMain], {
-    env: { ...process.env, NODE_ENV: 'production', PORT: '4000', PROJECT_ROOT: process.resourcesPath },
-    stdio: 'inherit'
+  // Run server with Electron's node runtime by toggling ELECTRON_RUN_AS_NODE.
+  // Use a writable PROJECT_ROOT so PDFs and files can be saved in production.
+  const writableProjectRoot = app.getPath('userData');
+  // Ensure packaged .env (in resources) is available to the server by copying it into the
+  // writable project root where the server looks for PROJECT_ROOT/.env. This preserves
+  // writable location for PDFs while allowing the server to read env vars from .env.
+  try {
+    const packagedEnv = path.join(process.resourcesPath, '.env');
+    const targetEnv = path.join(writableProjectRoot, '.env');
+    if (fs.existsSync(packagedEnv)) {
+      // create target dir if necessary
+      try { fs.mkdirSync(writableProjectRoot, { recursive: true }); } catch (e) {}
+      fs.copyFileSync(packagedEnv, targetEnv);
+      logToFile(`Copied packaged .env to ${targetEnv}`);
+    }
+  } catch (e) { logToFile(`Failed to copy packaged .env: ${String(e && e.stack || e)}`); }
+  // Start server as ESM using dynamic import
+  const serverUrl = pathToFileURL(serverMain).href;
+  // Fixed production port
+  const chosenPort = process.env.PORT || '4000';
+  // Launch server as a normal Node script using Electron's embedded Node (ELECTRON_RUN_AS_NODE)
+  const stdio = ['ignore', 'pipe', 'pipe'];
+  const spawnEnv = { ...process.env, ELECTRON_RUN_AS_NODE: '1', NODE_ENV: 'production', PORT: chosenPort, PROJECT_ROOT: writableProjectRoot };
+  const spawnOpts = { cwd: serverDistPath, env: spawnEnv, stdio, windowsHide: true };
+  serverChild = spawn(process.execPath, [serverMain], spawnOpts);
+
+  // Pipe child output to log file
+  try {
+    const logDir = app.getPath('userData');
+    const logFile = path.join(logDir, 'app.log');
+    const writeStream = fs.createWriteStream(logFile, { flags: 'a' });
+    writeStream.write(`\n===== Server start @ ${new Date().toISOString()} =====\n`);
+    writeStream.write(`serverMain=${serverMain}\nresourcesPath=${process.resourcesPath}\nPORT=${chosenPort}\n`);
+    if (serverChild.stdout) serverChild.stdout.pipe(writeStream);
+    if (serverChild.stderr) serverChild.stderr.pipe(writeStream);
+  } catch {}
+  serverChild.on('exit', (code, signal) => {
+    const msg = `Server process exited with code=${code} signal=${signal}`;
+    console.error(msg);
+    logToFile(msg);
   });
-  await waitForServer('http://localhost:4000/api/health');
-  // Load built client from extraResources
-  const clientIndex = `file://${path.join(process.resourcesPath, 'client-dist', 'index.html')}`;
+  await waitForServer(`http://localhost:${chosenPort}/api/health`);
+  // Load built client with apiBase query param
+  const clientIndex = `file://${path.join(process.resourcesPath, 'client-dist', 'index.html')}?apiBase=${encodeURIComponent(`http://localhost:${chosenPort}`)}`;
   if (mainWindow) mainWindow.loadURL(clientIndex);
 }
 
 app.whenReady().then(async () => {
   createWindow();
   if (!process.env.APP_URL) {
-    try { await startProductionServerAndLoad(); } catch (e) { /* eslint-disable no-console */ console.error(e); }
+    try { await startProductionServerAndLoad(); }
+    catch (e) {
+      /* eslint-disable no-console */
+      console.error('Error starting production server', e);
+      logToFile(`Error starting production server: ${String(e && e.stack || e)}`);
+      // Load client UI anyway so user sees an error state in UI rather than a blank placeholder
+      loadClientFromResources();
+    }
   }
 
   app.on('activate', () => {

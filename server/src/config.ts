@@ -1,21 +1,17 @@
 import path from "path";
-import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 
-// Get __dirname equivalent in ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Determine dotenv path and project root in a way that works for CommonJS output.
+const envProjectRoot = process.env.PROJECT_ROOT;
+const defaultProjectRoot = path.resolve(__dirname, "../../");
+const dotenvPath = envProjectRoot ? path.resolve(envProjectRoot, ".env") : path.resolve(__dirname, "../.env");
 
-// Load .env from server root regardless of CWD or build dir
-dotenv.config({ path: path.resolve(__dirname, "../.env") });
+dotenv.config({ path: dotenvPath });
 
 export const config = {
   port: parseInt(process.env.PORT || "4000", 10),
   databaseUrl: process.env.DATABASE_URL || "",
-  projectRoot: process.env.PROJECT_ROOT || path.resolve(__dirname, "../../"),
+  projectRoot: process.env.PROJECT_ROOT || defaultProjectRoot,
 };
 
-if (!config.databaseUrl) {
-  // eslint-disable-next-line no-console
-  console.warn("DATABASE_URL is not set. Configure server/.env before running.");
-}
+// No hard warning if DATABASE_URL absent; we support discrete PG* vars now.
