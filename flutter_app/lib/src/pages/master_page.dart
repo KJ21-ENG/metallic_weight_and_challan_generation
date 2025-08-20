@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:printing/printing.dart';
 import '../api/api.dart';
 
 class MasterPage extends StatefulWidget {
@@ -28,6 +29,8 @@ class _MasterPageState extends State<MasterPage> {
   String labelPrinter = '';
   String challanPrinter = '';
   List<String> availablePrinters = [];
+  late TextEditingController labelPrinterCtrl;
+  late TextEditingController challanPrinterCtrl;
 
   bool get isWeighted => type == 'bob_types' || type == 'box_types';
   bool get isEmployees => type == 'employees';
@@ -50,20 +53,41 @@ class _MasterPageState extends State<MasterPage> {
   @override
   void initState() {
     super.initState();
+    labelPrinterCtrl = TextEditingController();
+    challanPrinterCtrl = TextEditingController();
     _load();
   }
 
   Future<void> _load() async {
     if (isPrinterSettings) {
       final prefs = await SharedPreferences.getInstance();
-      setState(() {
-        labelPrinter = prefs.getString('labelPrinter') ?? '';
-        challanPrinter = prefs.getString('challanPrinter') ?? '';
-        availablePrinters = []; // Cannot list system printers portably; left empty
-      });
+      // Load saved prefs first
+      labelPrinter = prefs.getString('labelPrinter') ?? '';
+      challanPrinter = prefs.getString('challanPrinter') ?? '';
+      labelPrinterCtrl.text = labelPrinter;
+      challanPrinterCtrl.text = challanPrinter;
+
+      // Try to list system printers (may not be supported on all platforms)
+      await _refreshPrinters();
     } else {
       final data = await getOptions(type);
       setState(() { items = data.cast<Map<String, dynamic>>(); });
+    }
+  }
+
+  Future<void> _refreshPrinters() async {
+    try {
+      final printers = await Printing.listPrinters();
+      final names = printers.map((p) => p.name).toList();
+      if (!mounted) return;
+      setState(() {
+        availablePrinters = names;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Found ${names.length} printer(s)')));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { availablePrinters = []; });
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to list printers')));
     }
   }
 
@@ -109,8 +133,8 @@ class _MasterPageState extends State<MasterPage> {
 
   Future<void> _savePrinterSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('labelPrinter', labelPrinter);
-    await prefs.setString('challanPrinter', challanPrinter);
+    await prefs.setString('labelPrinter', labelPrinterCtrl.text);
+    await prefs.setString('challanPrinter', challanPrinterCtrl.text);
     if (!mounted) return; ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Printer settings saved')));
   }
 
@@ -248,8 +272,28 @@ class _MasterPageState extends State<MasterPage> {
                 const SizedBox(height: 8),
               ],
               Wrap(spacing: 12, runSpacing: 12, children: [
-                SizedBox(width: 340, child: TextField(controller: TextEditingController(text: labelPrinter), onChanged: (v) => labelPrinter = v, decoration: const InputDecoration(labelText: 'Label Printer', border: OutlineInputBorder()))),
-                SizedBox(width: 340, child: TextField(controller: TextEditingController(text: challanPrinter), onChanged: (v) => challanPrinter = v, decoration: const InputDecoration(labelText: 'Challan Printer', border: OutlineInputBorder()))),
+                SizedBox(
+                  width: 340,
+                  child: availablePrinters.isEmpty
+                      ? TextField(controller: labelPrinterCtrl, decoration: const InputDecoration(labelText: 'Label Printer', border: OutlineInputBorder()))
+                      : DropdownButtonFormField<String>(
+                          value: labelPrinterCtrl.text.isEmpty ? null : labelPrinterCtrl.text,
+                          items: availablePrinters.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                          onChanged: (v) => labelPrinterCtrl.text = v ?? '',
+                          decoration: const InputDecoration(labelText: 'Label Printer', border: OutlineInputBorder()),
+                        ),
+                ),
+                SizedBox(
+                  width: 340,
+                  child: availablePrinters.isEmpty
+                      ? TextField(controller: challanPrinterCtrl, decoration: const InputDecoration(labelText: 'Challan Printer', border: OutlineInputBorder()))
+                      : DropdownButtonFormField<String>(
+                          value: challanPrinterCtrl.text.isEmpty ? null : challanPrinterCtrl.text,
+                          items: availablePrinters.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                          onChanged: (v) => challanPrinterCtrl.text = v ?? '',
+                          decoration: const InputDecoration(labelText: 'Challan Printer', border: OutlineInputBorder()),
+                        ),
+                ),
                 FilledButton(onPressed: _savePrinterSettings, child: const Text('Save Printer Settings')),
               ]),
             ],

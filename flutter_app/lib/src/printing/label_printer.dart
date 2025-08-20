@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LabelPrinter {
   static Future<bool> printLabel({
@@ -70,8 +71,31 @@ class LabelPrinter {
         ),
       );
 
-      // Always show system print dialog for maximum compatibility on macOS/Windows
-      // Saved printer name is still kept in preferences for future direct printing if needed
+      // Try direct print to saved printer URL (best-effort). If not configured or fails, show print dialog.
+      final prefs = await SharedPreferences.getInstance();
+      final labelPrinterName = prefs.getString('labelPrinter') ?? prefs.getString('labelPrinterName') ?? '';
+
+      if (labelPrinterName.isNotEmpty) {
+        try {
+          // Query system printers and try to find a matching printer by name
+          final printers = await Printing.listPrinters();
+          dynamic matched;
+          for (final p in printers) {
+            if ((p.name ?? '').trim() == labelPrinterName.trim()) {
+              matched = p;
+              break;
+            }
+          }
+          if (matched != null) {
+            final ok = await Printing.directPrintPdf(printer: matched, onLayout: (format) async => doc.save());
+            if (ok == true) return true;
+          }
+        } catch (e) {
+          debugPrint('Direct print by name failed: $e');
+        }
+      }
+
+      // Fallback to system print dialog
       await Printing.layoutPdf(onLayout: (format) async => doc.save());
       return true;
     } catch (e) {

@@ -82,15 +82,24 @@ class _ChallanPageState extends State<ChallanPage> {
   int? helperId = 0;
   int bobTypeId = 0;
   int boxTypeId = 0;
-  String bobQty = '';
-  String grossWt = '';
+  late TextEditingController bobQtyCtrl;
+  late TextEditingController grossWtCtrl;
 
   final List<BasketItem> basket = [];
 
   @override
   void initState() {
     super.initState();
+    bobQtyCtrl = TextEditingController();
+    grossWtCtrl = TextEditingController();
     _loadOptions();
+  }
+
+  @override
+  void dispose() {
+    bobQtyCtrl.dispose();
+    grossWtCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _loadOptions() async {
@@ -123,12 +132,14 @@ class _ChallanPageState extends State<ChallanPage> {
 
   double get bobWt => _weightOf(bobTypes, bobTypeId);
   double get boxWt => _weightOf(boxTypes, boxTypeId);
-  double get tare => ((int.tryParse(bobQty) ?? 0) * bobWt + boxWt).toDoubleAs3();
-  double get net => ((double.tryParse(grossWt) ?? 0.0) - tare).toDoubleAs3();
+  double get tare => ((int.tryParse(bobQtyCtrl.text) ?? 0) * bobWt + boxWt).toDoubleAs3();
+  double get net => ((double.tryParse(grossWtCtrl.text) ?? 0.0) - tare).toDoubleAs3();
 
   void _addToBasket() async {
+    final int bobQtyVal = int.tryParse(bobQtyCtrl.text) ?? 0;
+    final double grossVal = double.tryParse(grossWtCtrl.text) ?? 0.0;
     final missing = metallicId == 0 || cutId == 0 || operatorId == 0 || bobTypeId == 0 || boxTypeId == 0 ||
-        bobQty.isEmpty || grossWt.isEmpty || (int.tryParse(bobQty) ?? 0) <= 0 || (double.tryParse(grossWt) ?? 0.0) <= 0.0;
+        bobQtyCtrl.text.trim().isEmpty || grossWtCtrl.text.trim().isEmpty || bobQtyVal <= 0 || grossVal <= 0.0;
     if (missing) {
       _alert('Please fill all item fields (Metallic, Cut, Operator, Bob Type, Box Type, Bob Qty and Gross Weight)');
       return;
@@ -141,8 +152,8 @@ class _ChallanPageState extends State<ChallanPage> {
       helperId: (helperId == 0) ? null : helperId,
       bobTypeId: bobTypeId,
       boxTypeId: boxTypeId,
-      bobQty: int.tryParse(bobQty) ?? 0,
-      grossWt: (double.tryParse(grossWt) ?? 0.0).toDoubleAs3(),
+      bobQty: bobQtyVal,
+      grossWt: grossVal.toDoubleAs3(),
     );
     setState(() => basket.add(item));
 
@@ -183,11 +194,9 @@ class _ChallanPageState extends State<ChallanPage> {
       boxType: _nameOf(bobTypes, item.bobTypeId),
       firmName: firmName,
     );
-
-    setState(() {
-      bobQty = '';
-      grossWt = '';
-    });
+    // Clear only the weight-related inputs for next entry
+    bobQtyCtrl.clear();
+    grossWtCtrl.clear();
   }
 
   Future<void> _generateChallan() async {
@@ -258,16 +267,16 @@ class _ChallanPageState extends State<ChallanPage> {
                   _select('Helper', helperId ?? 0, [const DropdownMenuItem(value: 0, child: Text('None')),...employees.where((e) => e.roleHelper == true).map((e) => DropdownMenuItem(value: e.id, child: Text(e.name)))], (v) => setState(() => helperId = v)),
                   _select('Bob Type', bobTypeId, [const DropdownMenuItem(value: 0, child: Text('Select')),...bobTypes.map((e) => DropdownMenuItem(value: e.id, child: Text('${e.name} (${(e.weightKg ?? 0).toStringAsFixed(3)} kg)')))], (v) => setState(() => bobTypeId = v ?? 0)),
                   _select('Box Type', boxTypeId, [const DropdownMenuItem(value: 0, child: Text('Select')),...boxTypes.map((e) => DropdownMenuItem(value: e.id, child: Text('${e.name} (${(e.weightKg ?? 0).toStringAsFixed(3)} kg)')))], (v) => setState(() => boxTypeId = v ?? 0)),
-                  _numField('Bob Qty', bobQty, (v) => setState(() => bobQty = v), isInt: true),
+                  _numField('Bob Qty', '', (v) => setState(() => bobQtyCtrl.text = v), isInt: true, controller: bobQtyCtrl),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _numField('Gross Weight (kg)', grossWt.isEmpty ? '' : (double.tryParse(grossWt) ?? 0).toStringAsFixed(3), (v) => setState(() => grossWt = v)),
+                      _numField('Gross Weight (kg)', '', (v) => setState(() => grossWtCtrl.text = v), controller: grossWtCtrl),
                       const SizedBox(width: 8),
                       OutlinedButton(
                         onPressed: () async {
                           final val = await _promptWeight(context);
-                          if (val != null) setState(() => grossWt = val.toStringAsFixed(3));
+                          if (val != null) setState(() => grossWtCtrl.text = val.toStringAsFixed(3));
                         },
                         child: const Text('Catch'),
                       )
@@ -389,11 +398,12 @@ class _ChallanPageState extends State<ChallanPage> {
     );
   }
 
-  Widget _numField(String label, String value, ValueChanged<String> onChanged, {bool isInt = false}) {
+  Widget _numField(String label, String value, ValueChanged<String> onChanged, {bool isInt = false, TextEditingController? controller}) {
     return SizedBox(
       width: 240,
       child: TextFormField(
-        initialValue: value,
+        controller: controller,
+        initialValue: controller == null ? value : null,
         onChanged: onChanged,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
