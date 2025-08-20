@@ -13,7 +13,6 @@ const navItems = [
   { label: 'Challan', icon: <ReceiptLongIcon />, path: '/challan' },
   { label: 'Master', icon: <SettingsIcon />, path: '/master' },
   { label: 'Manage Challans', icon: <InventoryIcon />, path: '/manage' },
-  { label: 'Reports', icon: <AssessmentIcon />, path: '/reports' },
 ]
 
 export function Layout({ children }: { children: React.ReactNode }) {

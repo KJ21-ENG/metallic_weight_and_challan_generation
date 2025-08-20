@@ -5,14 +5,12 @@ import MenuIcon from '@mui/icons-material/Menu';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import SettingsIcon from '@mui/icons-material/Settings';
 import InventoryIcon from '@mui/icons-material/Inventory';
-import AssessmentIcon from '@mui/icons-material/Assessment';
 import { useLocation, useNavigate } from 'react-router-dom';
 const drawerWidth = 240;
 const navItems = [
     { label: 'Challan', icon: _jsx(ReceiptLongIcon, {}), path: '/challan' },
     { label: 'Master', icon: _jsx(SettingsIcon, {}), path: '/master' },
     { label: 'Manage Challans', icon: _jsx(InventoryIcon, {}), path: '/manage' },
-    { label: 'Reports', icon: _jsx(AssessmentIcon, {}), path: '/reports' },
 ];
 export function Layout({ children }) {
     const [mobileOpen, setMobileOpen] = useState(false);

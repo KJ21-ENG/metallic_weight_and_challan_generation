@@ -4,7 +4,7 @@ import path from "path";
 import { config } from "./config";
 import { masterRouter } from "./routes/master";
 import { challansRouter } from "./routes/challans";
-import { reportsRouter } from "./routes/reports";
+// reportsRouter removed as Reports module deleted
 
 const app = express();
 app.use(cors());
@@ -24,7 +24,6 @@ app.use(
 
 app.use("/api/master", masterRouter);
 app.use("/api/challans", challansRouter);
-app.use("/api/reports", reportsRouter);
 
 // Health
 app.get("/api/health", (_req: Request, res: Response) => res.json({ ok: true }));

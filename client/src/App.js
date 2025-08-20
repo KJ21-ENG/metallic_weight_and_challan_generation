@@ -4,7 +4,6 @@ import { Layout } from './components/Layout';
 import { MasterPage } from './pages/Master';
 import { ChallanPage } from './pages/Challan';
 import { ManagementPage } from './pages/Management';
-import { ReportsPage } from './pages/Reports';
 export function App() {
-    return (_jsx(Layout, { children: _jsxs(Routes, { children: [_jsx(Route, { path: "/", element: _jsx(Navigate, { to: "/challan", replace: true }) }), _jsx(Route, { path: "/challan", element: _jsx(ChallanPage, {}) }), _jsx(Route, { path: "/master", element: _jsx(MasterPage, {}) }), _jsx(Route, { path: "/manage", element: _jsx(ManagementPage, {}) }), _jsx(Route, { path: "/reports", element: _jsx(ReportsPage, {}) })] }) }));
+    return (_jsx(Layout, { children: _jsxs(Routes, { children: [_jsx(Route, { path: "/", element: _jsx(Navigate, { to: "/challan", replace: true }) }), _jsx(Route, { path: "/challan", element: _jsx(ChallanPage, {}) }), _jsx(Route, { path: "/master", element: _jsx(MasterPage, {}) }), _jsx(Route, { path: "/manage", element: _jsx(ManagementPage, {}) })] }) }));
 }
