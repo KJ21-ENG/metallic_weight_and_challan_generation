@@ -435,6 +435,19 @@ class _ChallanPageState extends State<ChallanPage> {
   }
 
   Future<double?> _promptWeight(BuildContext context) async {
+    // Try HTTP capture (weight wrapper) first (Electron uses IPC; Flutter desktop will call local service)
+    try {
+      final res = await ApiClient.instance.dio.get('http://localhost:5001/capture');
+      if (res.statusCode == 200 && res.data != null && res.data['ok'] == true) {
+        final w = res.data['weight'];
+        final d = asDouble(w);
+        return d;
+      }
+    } catch (e) {
+      // ignore and fall back to manual dialog
+      debugPrint('HTTP weight capture failed: $e');
+    }
+
     final ctrl = TextEditingController();
     final res = await showDialog<double?>(
       context: context,
