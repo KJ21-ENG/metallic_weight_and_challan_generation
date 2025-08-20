@@ -257,7 +257,6 @@ export function ManagementPage() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>ID</TableCell>
               <TableCell>Challan No</TableCell>
               <TableCell>Date</TableCell>
               <TableCell>Customer</TableCell>
@@ -269,7 +268,6 @@ export function ManagementPage() {
           <TableBody>
             {rows.map(r => (
               <TableRow key={r.id}>
-                <TableCell>{r.id}</TableCell>
                 <TableCell>{String(r.challan_no).padStart(6, '0')}</TableCell>
                 <TableCell>{dayjs(r.date).format('DD/MM/YYYY')}</TableCell>
                 <TableCell>{r.customer_name}</TableCell>

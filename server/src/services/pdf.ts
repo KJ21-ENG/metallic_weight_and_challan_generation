@@ -42,7 +42,14 @@ export async function generateChallanPdf(options: {
   const yearYYYY = date.format("YYYY");
   const monthMM = date.format("MM");
 
-  const filename = `CH-${yearYY}-${String(challanNo).padStart(6, "0")}.pdf`;
+  // Build a richer filename including customer and item summary (metallics/cuts)
+  const uniqueMetallics = Array.from(new Set(items.map(i => i.metallic_name))).join('-')
+  const uniqueCuts = Array.from(new Set(items.map(i => i.cut_name))).join('-')
+  const parts = [customer.name, uniqueMetallics, uniqueCuts].filter(p => p && String(p).trim().length > 0)
+  // Sanitize and limit length to keep filenames filesystem-friendly
+  const combined = parts.join('_').replace(/[^a-zA-Z0-9-_ ]/g, '').replace(/\s+/g, '_')
+  const safeCombined = combined.length > 60 ? combined.slice(0, 60) : combined
+  const filename = `CH-${yearYY}-${String(challanNo).padStart(6, "0")}${safeCombined ? `_${safeCombined}` : ''}.pdf`;
   const dir = path.resolve(config.projectRoot, "Challans", yearYYYY, monthMM);
   await fs.promises.mkdir(dir, { recursive: true });
   const absolutePath = path.join(dir, filename);
