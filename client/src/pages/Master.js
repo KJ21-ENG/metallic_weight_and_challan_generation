@@ -55,7 +55,11 @@ export function MasterPage() {
             loadPrinterSettings();
         }
         else {
-            const data = await getOptions(type);
+            let data = await getOptions(type);
+            // Ensure numeric fields are numbers so UI (toFixed) works immediately
+            if (isWeighted && Array.isArray(data)) {
+                data = data.map((d) => ({ ...d, weight_kg: d.weight_kg != null ? Number(d.weight_kg) : d.weight_kg }));
+            }
             setItems(data);
         }
     }
@@ -118,8 +122,12 @@ export function MasterPage() {
                 body.email = email;
         }
         const res = await api.post(`/master/${type}`, body);
+        // Coerce numeric fields returned from the API so UI renderers (e.g. toFixed) work immediately
+        const newItem = res.data;
+        if (isWeighted && newItem && newItem.weight_kg != null)
+            newItem.weight_kg = Number(newItem.weight_kg);
         resetForm();
-        setItems([...items, res.data]);
+        setItems([...items, newItem]);
     }
     async function startEdit(i) {
         setEditingId(i.id);
@@ -161,6 +169,8 @@ export function MasterPage() {
         }
         const res = await api.put(`/master/${type}/${i.id}`, body);
         const updated = res.data;
+        if (isWeighted && updated && updated.weight_kg != null)
+            updated.weight_kg = Number(updated.weight_kg);
         setItems(items.map(it => it.id === i.id ? updated : it));
         setEditingId(null);
         setEdit(null);
