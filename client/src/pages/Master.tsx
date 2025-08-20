@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, getOptions } from '../api'
-import { Alert, Box, Button, Card, CardContent, Chip, FormControl, Grid, InputLabel, MenuItem, Select, Stack, Tab, Tabs, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Paper, Checkbox, Typography } from '@mui/material'
+import { Alert, Box, Button, Card, CardContent, Chip, FormControl, Grid, InputLabel, MenuItem, Select, Stack, Tab, Tabs, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Paper, Typography, Radio, RadioGroup, FormControlLabel } from '@mui/material'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 
 type Item = { id: number; name: string; weight_kg?: number; role_operator?: boolean; role_helper?: boolean; address?: string | null; gstin?: string | null }
@@ -23,8 +23,7 @@ export function MasterPage() {
 
   const [name, setName] = useState('')
   const [weight, setWeight] = useState('')
-  const [roleOp, setRoleOp] = useState(false)
-  const [roleHelp, setRoleHelp] = useState(false)
+  const [role, setRole] = useState<'operator' | 'helper' | ''>('')
   const [address, setAddress] = useState('')
   const [gstin, setGstin] = useState('')
   const [mobile, setMobile] = useState('')
@@ -50,7 +49,7 @@ export function MasterPage() {
   useEffect(() => { load(); resetForm() }, [type])
 
   function resetForm() {
-    setName(''); setWeight(''); setRoleOp(false); setRoleHelp(false); setAddress(''); setGstin(''); setMobile(''); setEmail('')
+    setName(''); setWeight(''); setRole(''); setAddress(''); setGstin(''); setMobile(''); setEmail('')
     setEditingId(null); setEdit(null)
   }
 
@@ -104,7 +103,7 @@ export function MasterPage() {
     if (!name.trim()) return
     const body: any = { name: name.trim() }
     if (isWeighted) body.weight_kg = Number(weight || 0)
-    if (isEmployees) { body.role_operator = roleOp; body.role_helper = roleHelp }
+    if (isEmployees) { body.role_operator = role === 'operator'; body.role_helper = role === 'helper' }
     if (isCustomers) { body.address = address || null; body.gstin = gstin || null }
     if (isFirms) {
       if (address) body.address = address
@@ -119,14 +118,15 @@ export function MasterPage() {
 
   async function startEdit(i: Item) {
     setEditingId(i.id)
-    setEdit({ ...i })
+    // provide a convenient `role` field for the edit object
+    setEdit({ ...i, role: i.role_operator ? 'operator' : (i.role_helper ? 'helper' : '') } as any)
   }
 
   async function saveEdit(i: Item) {
     if (!edit) return
     const body: any = {}
     if (isWeighted) { body.name = edit.name; body.weight_kg = Number(edit.weight_kg || 0) }
-    else if (isEmployees) { body.name = edit.name; body.role_operator = !!edit.role_operator; body.role_helper = !!edit.role_helper }
+    else if (isEmployees) { body.name = edit.name; const r = (edit as any).role as string | undefined; body.role_operator = r === 'operator'; body.role_helper = r === 'helper' }
     else if (isCustomers) { body.name = edit.name; body.address = edit.address || null; body.gstin = edit.gstin || null }
     else if (isFirms) {
       body.name = edit.name
@@ -261,9 +261,11 @@ export function MasterPage() {
                 {isWeighted && <Grid item xs={12} sm={2}><TextField fullWidth label="Weight (kg)" type="number" inputProps={{ step: '0.001' }} value={weight} onChange={e => setWeight(e.target.value)} /></Grid>}
                 {isEmployees && (
                   <Grid item xs={12} sm={3}>
-                    <FormControl component={Box} sx={{ display: 'flex', flexDirection: 'row', gap: 2 }}>
-                      <label><Checkbox checked={roleOp} onChange={e => setRoleOp(e.target.checked)} /> Operator</label>
-                      <label><Checkbox checked={roleHelp} onChange={e => setRoleHelp(e.target.checked)} /> Helper</label>
+                    <FormControl component={Box}>
+                      <RadioGroup row value={role} onChange={(_, v) => setRole(v as any)}>
+                        <FormControlLabel value="operator" control={<Radio />} label="Operator" />
+                        <FormControlLabel value="helper" control={<Radio />} label="Helper" />
+                      </RadioGroup>
                     </FormControl>
                   </Grid>
                 )}
@@ -285,7 +287,7 @@ export function MasterPage() {
             <TableRow>
               <TableCell>Name</TableCell>
               {isWeighted && <TableCell align="right">Weight (kg)</TableCell>}
-              {isEmployees && <><TableCell>Operator</TableCell><TableCell>Helper</TableCell></>}
+              {isEmployees && <TableCell>Role</TableCell>}
               {isCustomers && <><TableCell>Address</TableCell><TableCell>GSTIN</TableCell></>}
               {isFirms && <><TableCell>Address</TableCell><TableCell>GSTIN</TableCell><TableCell>Mobile</TableCell><TableCell>Email</TableCell></>}
               <TableCell align="right">Actions</TableCell>
@@ -307,10 +309,18 @@ export function MasterPage() {
                   </TableCell>
                 )}
                 {isEmployees && (
-                  <>
-                    <TableCell>{editingId === i.id ? <Checkbox checked={!!edit?.role_operator} onChange={e => setEdit({ ...(edit as Item), role_operator: e.target.checked })} /> : (i.role_operator ? 'Yes' : 'No')}</TableCell>
-                    <TableCell>{editingId === i.id ? <Checkbox checked={!!edit?.role_helper} onChange={e => setEdit({ ...(edit as Item), role_helper: e.target.checked })} /> : (i.role_helper ? 'Yes' : 'No')}</TableCell>
-                  </>
+                  <TableCell>
+                    {editingId === i.id ? (
+                      <FormControl component={Box}>
+                        <RadioGroup row value={(edit as any)?.role || ''} onChange={(_, v) => setEdit({ ...(edit as Item), role: v } as any)}>
+                          <FormControlLabel value="operator" control={<Radio />} label="Operator" />
+                          <FormControlLabel value="helper" control={<Radio />} label="Helper" />
+                        </RadioGroup>
+                      </FormControl>
+                    ) : (
+                      i.role_operator ? 'Operator' : (i.role_helper ? 'Helper' : '')
+                    )}
+                  </TableCell>
                 )}
                 {isCustomers && (
                   <>
