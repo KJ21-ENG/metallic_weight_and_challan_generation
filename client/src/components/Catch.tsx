@@ -4,9 +4,10 @@ import { Button } from '@mui/material'
 export interface CatchProps {
   disabled?: boolean
   onCatch: (weightKg: number) => void
+  onFail?: () => void
 }
 
-export const Catch: React.FC<CatchProps> = ({ disabled, onCatch }) => {
+export const Catch: React.FC<CatchProps> = ({ disabled, onCatch, onFail }) => {
   const round = (n: number) => {
     // Hardcoded to 3 decimal places as requested
     const m = Math.pow(10, 3)
@@ -30,27 +31,13 @@ export const Catch: React.FC<CatchProps> = ({ disabled, onCatch }) => {
         }
       }
 
-      // Older integration: try direct read-weight channel
-      // @ts-ignore
-      if ((window as any).electron?.ipcRenderer) {
-        try {
-          // @ts-ignore
-          const res2 = await (window as any).electron.ipcRenderer.invoke('read-weight')
-          const n2 = Number(res2)
-          if (Number.isFinite(n2)) { onCatch(round(n2)); return }
-        } catch (err) {
-          console.warn('read-weight fallback failed:', err);
-        }
-      }
+      // Older integration removed: do not attempt 'read-weight' fallback that opens a manual prompt in main process
     } catch (e) {
       console.warn('Electron weight read path errored:', e);
     }
 
-    // final fallback: manual prompt
-    const val = window.prompt('Enter weight (kg):')
-    if (!val) return
-    const num = Number(val)
-    if (Number.isFinite(num)) onCatch(round(num))
+    // final fallback: notify parent that scale isn't connected instead of prompting
+    if (typeof onFail === 'function') onFail()
   }
 
   return (

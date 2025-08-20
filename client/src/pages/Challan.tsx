@@ -18,7 +18,7 @@ type BasketItem = {
   gross_wt: number
 }
 
-type FormState = Omit<BasketItem, 'bob_qty' | 'gross_wt'> & { bob_qty: number | '' ; gross_wt: number | '' }
+type FormState = Omit<BasketItem, 'bob_qty' | 'gross_wt'> & { bob_qty: number | '' ; gross_wt: number | string }
 
 export function ChallanPage() {
   const [date, setDate] = useState(dayjs().format('YYYY-MM-DD'))
@@ -38,6 +38,7 @@ export function ChallanPage() {
   const [reservedChallanNo, setReservedChallanNo] = useState<number | null>(null)
 
   const [form, setForm] = useState<FormState>({ metallic_id: 0, cut_id: 0, operator_id: 0, helper_id: 0 as any, bob_type_id: 0, box_type_id: 0, bob_qty: '', gross_wt: '' })
+  const [scaleError, setScaleError] = useState<string>('')
   const [basket, setBasket] = useState<BasketItem[]>([])
   // (scale integration removed from UI)
 
@@ -455,11 +456,14 @@ export function ChallanPage() {
             </Grid>
             <Grid item xs={12} sm={3}>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <TextField fullWidth label="Gross Weight (kg)" type="number" value={form.gross_wt === '' ? '' : Number(form.gross_wt).toFixed(3)} onChange={e => {
+                <TextField fullWidth label="Gross Weight (kg)" type="text" value={form.gross_wt === '' ? '' : String(form.gross_wt)} onChange={e => {
                   const v = e.target.value
-                  setForm({ ...form, gross_wt: v === '' ? '' : Number(parseFloat(v)) })
-                }} inputProps={{ min: 0, step: 0.001 }} />
-                <Catch onCatch={(w) => setForm({ ...form, gross_wt: Math.round(w * 1000) / 1000 })} disabled={false} />
+                  // accept user input as-is (string) to avoid forcing formatting while typing
+                  setForm({ ...form, gross_wt: v === '' ? '' : v })
+                  if (scaleError) setScaleError('')
+                }} inputProps={{ inputMode: 'decimal', min: 0, step: 0.001 }} />
+                <Catch onCatch={(w) => setForm({ ...form, gross_wt: (Math.round(w * 1000) / 1000) })} onFail={() => setScaleError('Scale is not connected')} disabled={false} />
+                {scaleError && <Typography color="error" variant="body2" sx={{ ml: 1 }}>{scaleError}</Typography>}
               </div>
             </Grid>
           </Grid>
