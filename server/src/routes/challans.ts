@@ -31,7 +31,7 @@ challansRouter.get("/peek-next-number", async (req: Request, res: Response, next
 // List challans (optionally by date range)
 challansRouter.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { from, to } = req.query as { from?: string; to?: string };
+    const { from, to, customer_id, challan_no } = req.query as { from?: string; to?: string; customer_id?: string; challan_no?: string };
     let sql = `
       select c.*, cu.name as customer_name,
         coalesce(sum(ci.net_wt),0) as total_net_wt,
@@ -43,6 +43,8 @@ challansRouter.get("/", async (req: Request, res: Response, next: NextFunction) 
     const params: any[] = [];
     if (from) { params.push(from); sql += ` and c.date >= $${params.length}`; }
     if (to) { params.push(to); sql += ` and c.date <= $${params.length}`; }
+    if (customer_id) { params.push(Number(customer_id)); sql += ` and c.customer_id = $${params.length}`; }
+    if (challan_no) { params.push(Number(challan_no)); sql += ` and c.challan_no = $${params.length}`; }
     sql += " group by c.id, cu.name order by c.id desc limit 500";
     const result = await pool.query(sql, params);
     res.json(result.rows);

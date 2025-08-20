@@ -20,6 +20,8 @@ export function ManagementPage() {
   const [rows, setRows] = useState<any[]>([])
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const [customerId, setCustomerId] = useState<number | ''>('')
+  const [challanNo, setChallanNo] = useState('')
 
   const [editing, setEditing] = useState<null | { id: number, challan_no: number, date: string, customer_id: number, shift_id: number }>(null)
   const [items, setItems] = useState<BasketItem[]>([])
@@ -34,7 +36,7 @@ export function ManagementPage() {
   const [deleteRow, setDeleteRow] = useState<any | null>(null)
   const [deleteReason, setDeleteReason] = useState('')
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load(); (async () => { if (customers.length === 0) setCustomers(await getOptions('customers')) })() }, [])
 
   async function load() {
     const res = await api.get('/challans')
@@ -42,7 +44,10 @@ export function ManagementPage() {
   }
 
   async function search() {
-    const res = await api.get('/challans', { params: { from, to } })
+    const params: any = { from, to }
+    if (customerId !== '') params.customer_id = customerId
+    if (challanNo) params.challan_no = Number(challanNo)
+    const res = await api.get('/challans', { params })
     setRows(res.data)
   }
 
@@ -231,8 +236,18 @@ export function ManagementPage() {
       <Card>
         <CardContent>
           <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={3}><TextField fullWidth label="From" type="date" value={from} onChange={e => setFrom(e.target.value)} InputLabelProps={{ shrink: true }} /></Grid>
-            <Grid item xs={12} sm={3}><TextField fullWidth label="To" type="date" value={to} onChange={e => setTo(e.target.value)} InputLabelProps={{ shrink: true }} /></Grid>
+            <Grid item xs={12} sm={2}><TextField fullWidth label="From" type="date" value={from} onChange={e => setFrom(e.target.value)} InputLabelProps={{ shrink: true }} /></Grid>
+            <Grid item xs={12} sm={2}><TextField fullWidth label="To" type="date" value={to} onChange={e => setTo(e.target.value)} InputLabelProps={{ shrink: true }} /></Grid>
+            <Grid item xs={12} sm={3}>
+              <FormControl fullWidth>
+                <InputLabel>Customer</InputLabel>
+                <Select label="Customer" value={customerId} onChange={e => setCustomerId(e.target.value as any)}>
+                  <MenuItem value=""><em>All</em></MenuItem>
+                  {customers.map(c => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={2}><TextField fullWidth label="Challan No" value={challanNo} onChange={e => setChallanNo(e.target.value)} /></Grid>
             <Grid item xs={12} sm={'auto' as any}><Button onClick={search}>Search</Button></Grid>
           </Grid>
         </CardContent>
