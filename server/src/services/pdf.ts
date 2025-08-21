@@ -297,6 +297,15 @@ export async function generateChallanPdf(options: {
     doc.text("___________________", boxX + boxW - 130, sigY + 14, { width: 120, align: "right" });
   }
 
+  // Ensure numeric fields are numbers (some DB drivers may return strings)
+  for (let idx = 0; idx < items.length; idx++) {
+    const it: any = items[idx]
+    it.net_wt = Number(it.net_wt || 0)
+    it.bob_qty = Number(it.bob_qty || 0)
+    it.tare_wt = Number(it.tare_wt || 0)
+    it.gross_wt = Number(it.gross_wt || 0)
+  }
+
   // Draw both halves
   drawHalf(leftX, "ORIGINAL");
   drawHalf(rightX, "COPY");

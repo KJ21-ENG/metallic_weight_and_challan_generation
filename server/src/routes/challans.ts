@@ -217,6 +217,16 @@ challansRouter.post("/", async (req: Request, res: Response, next: NextFunction)
 
     const challanNo = typeof challan_no === "number" ? challan_no : await getNextSequence("challan_no");
 
+    // Basic validation: ensure required foreign keys are provided (>0) before starting transaction
+    for (let idx = 0; idx < items.length; idx++) {
+      const it = items[idx]
+      if (!it.metallic_id || Number(it.metallic_id) <= 0) return res.status(400).json({ error: `Item ${idx + 1}: metallic_id is required` })
+      if (!it.cut_id || Number(it.cut_id) <= 0) return res.status(400).json({ error: `Item ${idx + 1}: cut_id is required` })
+      if (!it.bob_type_id || Number(it.bob_type_id) <= 0) return res.status(400).json({ error: `Item ${idx + 1}: bob_type_id is required` })
+      if (!it.box_type_id || Number(it.box_type_id) <= 0) return res.status(400).json({ error: `Item ${idx + 1}: box_type_id is required` })
+      if (!it.operator_id || Number(it.operator_id) <= 0) return res.status(400).json({ error: `Item ${idx + 1}: operator_id is required` })
+    }
+
     const result = await withTransaction(async (client) => {
       const challanInsert = await client.query(
         `insert into challans (challan_no, date, customer_id, shift_id, firm_id) values ($1, $2, $3, $4, $5) returning *`,
@@ -338,9 +348,6 @@ challansRouter.put("/:id", async (req: Request, res: Response, next: NextFunctio
 
       await client.query("update challans set date=$1, customer_id=$2, shift_id=$3, updated_at=now() where id=$4", [date, customer_id, shift_id, id]);
 
-      // soft delete old items
-      await client.query("update challan_items set is_deleted=true, deleted_at=now(), delete_reason='Replaced on edit' where challan_id=$1 and is_deleted=false", [id]);
-
       // Refetch weights and names
       const bobTypes = await client.query("select id, name, weight_kg from bob_types");
       const boxTypes = await client.query("select id, name, weight_kg from box_types");
@@ -351,45 +358,95 @@ challansRouter.put("/:id", async (req: Request, res: Response, next: NextFunctio
       const findName = (rows: any[], id: number, field: string = "name") => rows.find((r) => Number(r.id) === Number(id))?.[field] || "";
       const findWeight = (rows: any[], id: number) => Number(rows.find((r) => Number(r.id) === Number(id))?.weight_kg || 0);
 
+      // Basic validation: ensure required foreign keys are provided (>0)
+      for (const it of items) {
+        if (!it.metallic_id || Number(it.metallic_id) <= 0) throw new Error('Invalid item: metallic_id is required')
+        if (!it.cut_id || Number(it.cut_id) <= 0) throw new Error('Invalid item: cut_id is required')
+        if (!it.bob_type_id || Number(it.bob_type_id) <= 0) throw new Error('Invalid item: bob_type_id is required')
+        if (!it.box_type_id || Number(it.box_type_id) <= 0) throw new Error('Invalid item: box_type_id is required')
+        if (!it.operator_id || Number(it.operator_id) <= 0) throw new Error('Invalid item: operator_id is required')
+      }
+
+      // Fetch existing active items ordered by item_index
+      const existingActiveRes = await client.query("select * from challan_items where challan_id=$1 and is_deleted=false order by item_index asc", [id]);
+      const existingActive = existingActiveRes.rows;
+
+      // Find current max item_index for this challan (including deleted) to assign new sequential indexes
+      const maxIdxRes = await client.query("select coalesce(max(item_index),0) as mx from challan_items where challan_id=$1", [id]);
+      let maxIdx = Number(maxIdxRes.rows[0]?.mx || 0);
+
       const itemRows: any[] = [];
+
+      // Update existing items in-place where possible; insert new items with incremented item_index/barcode
       for (let i = 0; i < items.length; i++) {
         const it = items[i];
-        const itemIndex = i + 1;
         const bobWt = Number(findWeight(bobTypes.rows, it.bob_type_id));
         const boxWt = Number(findWeight(boxTypes.rows, it.box_type_id));
         const tare = computeTareKg(Number(it.bob_qty), bobWt, boxWt);
         const net = computeNetKg(Number(it.gross_wt), tare);
-        const barcode = buildBarcode(challanRow.challan_no, itemIndex, date);
-        const inserted = await client.query(
-          `insert into challan_items (
-            challan_id, item_index, metallic_id, cut_id, operator_id, helper_id,
-            bob_type_id, box_type_id, bob_qty, gross_wt, tare_wt, net_wt, barcode
-          ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) returning *`,
-          [
-            id,
-            itemIndex,
-            it.metallic_id,
-            it.cut_id,
-            it.operator_id,
-            it.helper_id ?? null,
-            it.bob_type_id,
-            it.box_type_id,
-            Number(it.bob_qty),
-            Number(it.gross_wt),
-            Number(tare),
-            Number(net),
-            barcode,
-          ]
-        );
-        itemRows.push({
-          ...inserted.rows[0],
-          metallic_name: findName(metallics.rows, it.metallic_id),
-          cut_name: findName(cuts.rows, it.cut_id),
-          operator_name: findName(employees.rows, it.operator_id),
-          helper_name: it.helper_id ? findName(employees.rows, it.helper_id) : null,
-          bob_type_name: findName(bobTypes.rows, it.bob_type_id),
-          box_type_name: findName(boxTypes.rows, it.box_type_id),
-        });
+
+        if (i < existingActive.length) {
+          // update existing row preserving item_index and barcode
+          const rowId = existingActive[i].id;
+          const updated = await client.query(
+            `update challan_items set metallic_id=$1, cut_id=$2, operator_id=$3, helper_id=$4, bob_type_id=$5, box_type_id=$6, bob_qty=$7, gross_wt=$8, tare_wt=$9, net_wt=$10, updated_at=now() where id=$11 returning *`,
+            [it.metallic_id, it.cut_id, it.operator_id, it.helper_id ?? null, it.bob_type_id, it.box_type_id, Number(it.bob_qty), Number(it.gross_wt), Number(tare), Number(net), rowId]
+          );
+          const ur = updated.rows[0];
+          itemRows.push({
+            ...ur,
+            metallic_name: findName(metallics.rows, it.metallic_id),
+            cut_name: findName(cuts.rows, it.cut_id),
+            operator_name: findName(employees.rows, it.operator_id),
+            helper_name: it.helper_id ? findName(employees.rows, it.helper_id) : null,
+            bob_type_name: findName(bobTypes.rows, it.bob_type_id),
+            box_type_name: findName(boxTypes.rows, it.box_type_id),
+          });
+        } else {
+          // new item -> assign next item index and unique barcode
+          maxIdx += 1;
+          const itemIndex = maxIdx;
+          const barcode = buildBarcode(challanRow.challan_no, itemIndex, date);
+          const inserted = await client.query(
+            `insert into challan_items (
+              challan_id, item_index, metallic_id, cut_id, operator_id, helper_id,
+              bob_type_id, box_type_id, bob_qty, gross_wt, tare_wt, net_wt, barcode
+            ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) returning *`,
+            [
+              id,
+              itemIndex,
+              it.metallic_id,
+              it.cut_id,
+              it.operator_id,
+              it.helper_id ?? null,
+              it.bob_type_id,
+              it.box_type_id,
+              Number(it.bob_qty),
+              Number(it.gross_wt),
+              Number(tare),
+              Number(net),
+              barcode,
+            ]
+          );
+          const ins = inserted.rows[0];
+          itemRows.push({
+            ...ins,
+            metallic_name: findName(metallics.rows, it.metallic_id),
+            cut_name: findName(cuts.rows, it.cut_id),
+            operator_name: findName(employees.rows, it.operator_id),
+            helper_name: it.helper_id ? findName(employees.rows, it.helper_id) : null,
+            bob_type_name: findName(bobTypes.rows, it.bob_type_id),
+            box_type_name: findName(boxTypes.rows, it.box_type_id),
+          });
+        }
+      }
+
+      // If there are extra existing active items beyond incoming list, soft-delete them
+      if (existingActive.length > items.length) {
+        for (let j = items.length; j < existingActive.length; j++) {
+          const rid = existingActive[j].id;
+          await client.query("update challan_items set is_deleted=true, deleted_at=now(), delete_reason='Removed on edit' where id=$1", [rid]);
+        }
       }
 
       const customer = (await client.query("select id, name, address, gstin from customers where id=$1", [customer_id])).rows[0];

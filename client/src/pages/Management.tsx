@@ -164,7 +164,6 @@ export function ManagementPage() {
 
         <Card>
           <CardContent>
-            <Button onClick={addRow}>+ Add Item</Button>
             <TableContainer component={Paper} sx={{ mt: 2 }}>
               <Table size="small">
                 <TableHead>
