@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import dayjs from 'dayjs'
 import { api, getOptions } from '../api'
-import { Button, Card, CardContent, Grid, Stack, TextField, Typography, TableContainer, Paper, Table, TableHead, TableRow, TableCell, TableBody, Select, MenuItem, FormControl, InputLabel, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material'
+import { Button, Card, CardContent, Grid, Stack, TextField, Typography, TableContainer, Paper, Table, TableHead, TableRow, TableCell, TableBody, Select, MenuItem, FormControl, InputLabel, Dialog, DialogTitle, DialogContent, DialogActions, Pagination, Box } from '@mui/material'
 
 type Option = { id: number; name: string; weight_kg?: number; role_operator?: boolean; role_helper?: boolean }
 
@@ -22,6 +22,9 @@ export function ManagementPage() {
   const [to, setTo] = useState('')
   const [customerId, setCustomerId] = useState<number | ''>('')
   const [challanNo, setChallanNo] = useState('')
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const LIMIT = 50
 
   const [editing, setEditing] = useState<null | { id: number, challan_no: number, date: string, customer_id: number, shift_id: number }>(null)
   const [items, setItems] = useState<BasketItem[]>([])
@@ -36,19 +39,20 @@ export function ManagementPage() {
   const [deleteRow, setDeleteRow] = useState<any | null>(null)
   const [deleteReason, setDeleteReason] = useState('')
 
-  useEffect(() => { load(); (async () => { if (customers.length === 0) setCustomers(await getOptions('customers')) })() }, [])
+  useEffect(() => { fetchPage(1); (async () => { if (customers.length === 0) setCustomers(await getOptions('customers')) })() }, [])
 
-  async function load() {
-    const res = await api.get('/challans')
-    setRows(res.data)
-  }
-
-  async function search() {
-    const params: any = { from, to }
+  async function fetchPage(p: number) {
+    const params: any = { from, to, page: p, limit: LIMIT }
     if (customerId !== '') params.customer_id = customerId
     if (challanNo) params.challan_no = Number(challanNo)
     const res = await api.get('/challans', { params })
-    setRows(res.data)
+    setRows(res.data.rows)
+    setTotal(res.data.total || 0)
+    setPage(p)
+  }
+
+  async function search() {
+    await fetchPage(1)
   }
 
   // Preload PDFs for faster access
@@ -115,7 +119,7 @@ export function ManagementPage() {
     if (res.data.pdf_path) window.open(`/api/challans/${editing.id}/print`, '_blank')
     setEditing(null)
     setItems([])
-    await load()
+    await fetchPage(page)
   }
 
   async function softDelete(row: any) {
@@ -127,7 +131,7 @@ export function ManagementPage() {
     if (!deleteRow) return
     await api.delete(`/challans/${deleteRow.id}`, { params: { reason: deleteReason || undefined } })
     setDeleteRow(null)
-    await load()
+    await fetchPage(page)
   }
 
   if (editing) {
@@ -269,38 +273,44 @@ export function ManagementPage() {
         </CardContent>
       </Card>
 
-      <TableContainer component={Paper}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Challan No</TableCell>
-              <TableCell>Date</TableCell>
-              <TableCell>Customer</TableCell>
-              <TableCell align="right">Total Bobbin</TableCell>
-              <TableCell align="right">Total Net (kg)</TableCell>
-              <TableCell align="right">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {rows.map(r => (
-              <TableRow key={r.id}>
-                <TableCell>{String(r.challan_no).padStart(6, '0')}</TableCell>
-                <TableCell>{dayjs(r.date).format('DD/MM/YYYY')}</TableCell>
-                <TableCell>{r.customer_name}</TableCell>
-                <TableCell align="right">{r.total_bob_qty}</TableCell>
-                <TableCell align="right">{Number(r.total_net_wt).toFixed(3)}</TableCell>
-                <TableCell align="right">
-                  <Stack direction="row" spacing={1} justifyContent="flex-end">
-                    <Button size="small" onClick={() => openPdf(r)}>Open PDF</Button>
-                    <Button size="small" onClick={() => startEdit(r)}>Edit</Button>
-                    <Button size="small" color="error" variant="outlined" onClick={() => softDelete(r)}>Delete</Button>
-                  </Stack>
-                </TableCell>
+      <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 520 }}>
+        <TableContainer component={Paper} sx={{ flex: 1 }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Challan No</TableCell>
+                <TableCell>Date</TableCell>
+                <TableCell>Customer</TableCell>
+                <TableCell align="right">Total Bobbin</TableCell>
+                <TableCell align="right">Total Net (kg)</TableCell>
+                <TableCell align="right">Actions</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+            </TableHead>
+            <TableBody>
+              {rows.map(r => (
+                <TableRow key={r.id}>
+                  <TableCell>{String(r.challan_no).padStart(6, '0')}</TableCell>
+                  <TableCell>{dayjs(r.date).format('DD/MM/YYYY')}</TableCell>
+                  <TableCell>{r.customer_name}</TableCell>
+                  <TableCell align="right">{r.total_bob_qty}</TableCell>
+                  <TableCell align="right">{Number(r.total_net_wt).toFixed(3)}</TableCell>
+                  <TableCell align="right">
+                    <Stack direction="row" spacing={1} justifyContent="flex-end">
+                      <Button size="small" onClick={() => openPdf(r)}>Open PDF</Button>
+                      <Button size="small" onClick={() => startEdit(r)}>Edit</Button>
+                      <Button size="small" color="error" variant="outlined" onClick={() => softDelete(r)}>Delete</Button>
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+          <Pagination count={Math.ceil(total / LIMIT) || 1} page={page} onChange={(_, p) => fetchPage(p)} color="primary" />
+        </Box>
+      </Box>
       <Dialog open={!!deleteRow} onClose={() => setDeleteRow(null)}>
         <DialogTitle>Delete Challan #{deleteRow ? String(deleteRow.challan_no).padStart(6,'0') : ''}</DialogTitle>
         <DialogContent>

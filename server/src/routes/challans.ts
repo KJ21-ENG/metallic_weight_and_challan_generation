@@ -31,23 +31,31 @@ challansRouter.get("/peek-next-number", async (req: Request, res: Response, next
 // List challans (optionally by date range)
 challansRouter.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { from, to, customer_id, challan_no } = req.query as { from?: string; to?: string; customer_id?: string; challan_no?: string };
-    let sql = `
-      select c.*, cu.name as customer_name,
-        coalesce(sum(ci.net_wt),0) as total_net_wt,
-        coalesce(sum(ci.bob_qty),0) as total_bob_qty
+    const { from, to, customer_id, challan_no, page, limit } = req.query as { from?: string; to?: string; customer_id?: string; challan_no?: string; page?: string; limit?: string };
+    let baseSql = `
       from challans c
       join customers cu on cu.id = c.customer_id
       left join challan_items ci on ci.challan_id = c.id and ci.is_deleted = false
       where c.is_deleted = false`;
     const params: any[] = [];
-    if (from) { params.push(from); sql += ` and c.date >= $${params.length}`; }
-    if (to) { params.push(to); sql += ` and c.date <= $${params.length}`; }
-    if (customer_id) { params.push(Number(customer_id)); sql += ` and c.customer_id = $${params.length}`; }
-    if (challan_no) { params.push(Number(challan_no)); sql += ` and c.challan_no = $${params.length}`; }
-    sql += " group by c.id, cu.name order by c.id desc limit 500";
+    if (from) { params.push(from); baseSql += ` and c.date >= $${params.length}`; }
+    if (to) { params.push(to); baseSql += ` and c.date <= $${params.length}`; }
+    if (customer_id) { params.push(Number(customer_id)); baseSql += ` and c.customer_id = $${params.length}`; }
+    if (challan_no) { params.push(Number(challan_no)); baseSql += ` and c.challan_no = $${params.length}`; }
+
+    // total count
+    const countSql = `select count(distinct c.id) as total ${baseSql}`;
+    const countRes = await pool.query(countSql, params);
+    const total = Number(countRes.rows[0]?.total || 0);
+
+    // pagination
+    const pageNum = page ? Math.max(1, Number(page)) : 1;
+    const pageLimit = limit ? Math.max(1, Number(limit)) : 50;
+    const offset = (pageNum - 1) * pageLimit;
+
+    const sql = `select c.*, cu.name as customer_name, coalesce(sum(ci.net_wt),0) as total_net_wt, coalesce(sum(ci.bob_qty),0) as total_bob_qty ${baseSql} group by c.id, cu.name order by c.id desc limit ${pageLimit} offset ${offset}`;
     const result = await pool.query(sql, params);
-    res.json(result.rows);
+    res.json({ rows: result.rows, total });
   } catch (err) { next(err); }
 });
 
