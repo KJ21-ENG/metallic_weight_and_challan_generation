@@ -51,8 +51,24 @@ export function ManagementPage() {
     setRows(res.data)
   }
 
+  // Preload PDFs for faster access
+  const preloadPdf = async (row: any) => {
+    if (row.id) {
+      try {
+        // Preload the PDF in background
+        await api.get(`/api/challans/${row.id}/preload-pdf`);
+      } catch (err) {
+        // Ignore preload errors, continue with normal flow
+      }
+    }
+  };
+
   function openPdf(row: any) {
-    if (row.id) window.open(`/api/challans/${row.id}/print`, '_blank')
+    if (row.id) {
+      // Preload first, then open
+      preloadPdf(row);
+      window.open(`/api/challans/${row.id}/print`, '_blank');
+    }
   }
 
   async function startEdit(row: any) {

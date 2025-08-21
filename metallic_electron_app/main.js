@@ -383,11 +383,6 @@ function createWindow() {
         });
         const absoluteUrl = url.startsWith('/api/') ? `http://localhost:4000${url}` : url;
         printWindow.loadURL(absoluteUrl);
-        printWindow.webContents.on('did-finish-load', () => {
-          setTimeout(() => {
-            try { printWindow.webContents.print({ silent: false }); } catch {}
-          }, 500);
-        });
         return { action: 'deny' };
       }
     } catch {}

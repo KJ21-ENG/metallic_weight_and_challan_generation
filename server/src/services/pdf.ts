@@ -61,7 +61,10 @@ export async function generateChallanPdf(options: {
     size: "A4",
     layout: "landscape",
     margin: 15, // Reduced margin for more space
-    autoFirstPage: true
+    // Optimize for faster rendering and smaller file size
+    compress: true,
+    autoFirstPage: true,
+    bufferPages: false // Don't buffer pages for faster generation
   });
   
   const writeStream = fs.createWriteStream(absolutePath);
