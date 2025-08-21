@@ -54,12 +54,13 @@ masterRouter.post("/:type", async (req: Request, res: Response, next: NextFuncti
       const schema = z.object({ 
         name: z.string().min(1), 
         address: z.string().optional().nullable(), 
-        gstin: z.string().optional().nullable() 
+        gstin: z.string().optional().nullable(),
+        mobile: z.string().optional().nullable()
       });
-      const { name, address = null, gstin = null } = schema.parse(req.body);
+      const { name, address = null, gstin = null, mobile = null } = schema.parse(req.body);
       const result = await pool.query(
-        `insert into customers (name, address, gstin) values ($1, $2, $3) returning *`,
-        [name.trim(), address, gstin]
+        `insert into customers (name, address, gstin, mobile) values ($1, $2, $3, $4) returning *`,
+        [name.trim(), address, gstin, mobile]
       );
       return res.status(201).json(result.rows[0]);
     }
@@ -121,12 +122,13 @@ masterRouter.put("/:type/:id", async (req: Request, res: Response, next: NextFun
       const schema = z.object({ 
         name: z.string().min(1), 
         address: z.string().optional().nullable(), 
-        gstin: z.string().optional().nullable() 
+        gstin: z.string().optional().nullable(),
+        mobile: z.string().optional().nullable()
       });
-      const { name, address = null, gstin = null } = schema.parse(req.body);
+      const { name, address = null, gstin = null, mobile = null } = schema.parse(req.body);
       const result = await pool.query(
-        `update customers set name=$1, address=$2, gstin=$3, updated_at=now() where id=$4 returning *`,
-        [name.trim(), address, gstin, id]
+        `update customers set name=$1, address=$2, gstin=$3, mobile=$4, updated_at=now() where id=$5 returning *`,
+        [name.trim(), address, gstin, mobile, id]
       );
       return res.json(result.rows[0]);
     }

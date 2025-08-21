@@ -3,7 +3,7 @@ import { api, getOptions } from '../api'
 import { Alert, Box, Button, Card, CardContent, Chip, FormControl, Grid, InputLabel, MenuItem, Select, Stack, Tab, Tabs, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Paper, Typography, Radio, RadioGroup, FormControlLabel } from '@mui/material'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 
-type Item = { id: number; name: string; weight_kg?: number; role_operator?: boolean; role_helper?: boolean; address?: string | null; gstin?: string | null }
+type Item = { id: number; name: string; weight_kg?: number; role_operator?: boolean; role_helper?: boolean; address?: string | null; gstin?: string | null; mobile?: string | null }
 
 const masterTabs = [
   { key: 'metallics', label: 'Metallic' },
@@ -108,7 +108,7 @@ export function MasterPage() {
     const body: any = { name: name.trim() }
     if (isWeighted) body.weight_kg = Number(weight || 0)
     if (isEmployees) { body.role_operator = role === 'operator'; body.role_helper = role === 'helper' }
-    if (isCustomers) { body.address = address || null; body.gstin = gstin || null }
+    if (isCustomers) { body.address = address || null; body.gstin = gstin || null; body.mobile = mobile || null }
     if (isFirms) {
       if (address) body.address = address
       if (gstin) body.gstin = gstin
@@ -134,7 +134,7 @@ export function MasterPage() {
     const body: any = {}
     if (isWeighted) { body.name = edit.name; body.weight_kg = Number(edit.weight_kg || 0) }
     else if (isEmployees) { body.name = edit.name; const r = (edit as any).role as string | undefined; body.role_operator = r === 'operator'; body.role_helper = r === 'helper' }
-    else if (isCustomers) { body.name = edit.name; body.address = edit.address || null; body.gstin = edit.gstin || null }
+    else if (isCustomers) { body.name = edit.name; body.address = edit.address || null; body.gstin = edit.gstin || null; body.mobile = edit.mobile || null }
     else if (isFirms) {
       body.name = edit.name
       if ((edit as any).address) (body as any).address = (edit as any).address
@@ -281,6 +281,7 @@ export function MasterPage() {
                   <>
                     <Grid item xs={12} sm={4}><TextField fullWidth label="Address" value={address} onChange={e => setAddress(e.target.value)} /></Grid>
                     <Grid item xs={12} sm={2}><TextField fullWidth label="GSTIN" value={gstin} onChange={e => setGstin(e.target.value)} /></Grid>
+                    {isCustomers && <Grid item xs={12} sm={2}><TextField fullWidth label="Mobile" value={mobile} onChange={e => setMobile(e.target.value)} /></Grid>}
                     {isFirms && <><Grid item xs={12} sm={2}><TextField fullWidth label="Mobile" value={mobile} onChange={e => setMobile(e.target.value)} /></Grid><Grid item xs={12} sm={2}><TextField fullWidth label="Email" value={email} onChange={e => setEmail(e.target.value)} /></Grid></>}
                   </>
                 )}
@@ -296,7 +297,7 @@ export function MasterPage() {
               <TableCell>Name</TableCell>
               {isWeighted && <TableCell align="right">Weight (kg)</TableCell>}
               {isEmployees && <TableCell>Role</TableCell>}
-              {isCustomers && <><TableCell>Address</TableCell><TableCell>GSTIN</TableCell></>}
+              {isCustomers && <><TableCell>Address</TableCell><TableCell>GSTIN</TableCell><TableCell>Mobile</TableCell></>}
               {isFirms && <><TableCell>Address</TableCell><TableCell>GSTIN</TableCell><TableCell>Mobile</TableCell><TableCell>Email</TableCell></>}
               <TableCell align="right">Actions</TableCell>
             </TableRow>
@@ -334,6 +335,7 @@ export function MasterPage() {
                   <>
                     <TableCell>{editingId === i.id ? <TextField size="small" value={edit?.address || ''} onChange={e => setEdit({ ...(edit as Item), address: e.target.value })} /> : (i.address || '')}</TableCell>
                     <TableCell>{editingId === i.id ? <TextField size="small" value={edit?.gstin || ''} onChange={e => setEdit({ ...(edit as Item), gstin: e.target.value })} /> : (i.gstin || '')}</TableCell>
+                    <TableCell>{editingId === i.id ? <TextField size="small" value={edit?.mobile || ''} onChange={e => setEdit({ ...(edit as Item), mobile: e.target.value })} /> : (i.mobile || '')}</TableCell>
                   </>
                 )}
                 {isFirms && (

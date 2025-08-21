@@ -102,7 +102,7 @@ class _MasterPageState extends State<MasterPage> {
     final body = <String, dynamic>{'name': nameCtrl.text.trim()};
     if (isWeighted) body['weight_kg'] = double.tryParse(weightCtrl.text) ?? 0.0;
     if (isEmployees) { body['role_operator'] = roleOp; body['role_helper'] = roleHelp; }
-    if (isCustomers) { body['address'] = addressCtrl.text.isEmpty ? null : addressCtrl.text; body['gstin'] = gstinCtrl.text.isEmpty ? null : gstinCtrl.text; }
+    if (isCustomers) { body['address'] = addressCtrl.text.isEmpty ? null : addressCtrl.text; body['gstin'] = gstinCtrl.text.isEmpty ? null : gstinCtrl.text; body['mobile'] = mobileCtrl.text.isEmpty ? null : mobileCtrl.text; }
     if (isFirms) {
       if (addressCtrl.text.isNotEmpty) body['address'] = addressCtrl.text;
       if (gstinCtrl.text.isNotEmpty) body['gstin'] = gstinCtrl.text;
@@ -118,7 +118,7 @@ class _MasterPageState extends State<MasterPage> {
     final body = <String, dynamic>{};
     if (isWeighted) { body['name'] = edit!['name']; body['weight_kg'] = (edit!['weight_kg'] ?? 0).toDouble(); }
     else if (isEmployees) { body['name'] = edit!['name']; body['role_operator'] = edit!['role_operator'] == true; body['role_helper'] = edit!['role_helper'] == true; }
-    else if (isCustomers) { body['name'] = edit!['name']; body['address'] = edit!['address']; body['gstin'] = edit!['gstin']; }
+    else if (isCustomers) { body['name'] = edit!['name']; body['address'] = edit!['address']; body['gstin'] = edit!['gstin']; body['mobile'] = edit!['mobile']; }
     else if (isFirms) { body['name'] = edit!['name']; if (edit!['address'] != null) body['address'] = edit!['address']; if (edit!['gstin'] != null) body['gstin'] = edit!['gstin']; if (edit!['mobile'] != null) body['mobile'] = edit!['mobile']; if (edit!['email'] != null) body['email'] = edit!['email']; }
     else { body['name'] = edit!['name']; }
     final res = await ApiClient.instance.dio.put('/master/$type/${i['id']}', data: body);
@@ -187,6 +187,7 @@ class _MasterPageState extends State<MasterPage> {
                 if (isCustomers || isFirms) ...[
                   SizedBox(width: 360, child: TextField(controller: addressCtrl, decoration: const InputDecoration(labelText: 'Address', border: OutlineInputBorder()))),
                   SizedBox(width: 200, child: TextField(controller: gstinCtrl, decoration: const InputDecoration(labelText: 'GSTIN', border: OutlineInputBorder()))),
+                  if (isCustomers) SizedBox(width: 200, child: TextField(controller: mobileCtrl, decoration: const InputDecoration(labelText: 'Mobile', border: OutlineInputBorder()))),
                   if (isFirms) ...[
                     SizedBox(width: 200, child: TextField(controller: mobileCtrl, decoration: const InputDecoration(labelText: 'Mobile', border: OutlineInputBorder()))),
                     SizedBox(width: 240, child: TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder()))),
@@ -211,6 +212,7 @@ class _MasterPageState extends State<MasterPage> {
                     if (isEmployees) const DataColumn(label: Text('Helper')),
                     if (isCustomers) const DataColumn(label: Text('Address')),
                     if (isCustomers) const DataColumn(label: Text('GSTIN')),
+                    if (isCustomers) const DataColumn(label: Text('Mobile')),
                     if (isFirms) const DataColumn(label: Text('Address')),
                     if (isFirms) const DataColumn(label: Text('GSTIN')),
                     if (isFirms) const DataColumn(label: Text('Mobile')),
@@ -226,6 +228,7 @@ class _MasterPageState extends State<MasterPage> {
                       if (isEmployees) DataCell(isEditing ? Checkbox(value: (edit?['role_helper'] ?? i['role_helper']) == true, onChanged: (v) => setState(() => edit = {...?edit, 'role_helper': v == true})) : Text((i['role_helper'] == true) ? 'Yes' : 'No')),
                       if (isCustomers) DataCell(isEditing ? SizedBox(width: 240, child: TextField(controller: TextEditingController(text: edit?['address'] ?? i['address'] ?? ''), onChanged: (v) => edit = {...?edit, 'address': v},)) : Text((i['address'] ?? '').toString())),
                       if (isCustomers) DataCell(isEditing ? SizedBox(width: 160, child: TextField(controller: TextEditingController(text: edit?['gstin'] ?? i['gstin'] ?? ''), onChanged: (v) => edit = {...?edit, 'gstin': v},)) : Text((i['gstin'] ?? '').toString())),
+                      if (isCustomers) DataCell(isEditing ? SizedBox(width: 140, child: TextField(controller: TextEditingController(text: edit?['mobile'] ?? i['mobile'] ?? ''), onChanged: (v) => edit = {...?edit, 'mobile': v},)) : Text((i['mobile'] ?? '').toString())),
                       if (isFirms) DataCell(isEditing ? SizedBox(width: 240, child: TextField(controller: TextEditingController(text: edit?['address'] ?? i['address'] ?? ''), onChanged: (v) => edit = {...?edit, 'address': v},)) : Text((i['address'] ?? '').toString())),
                       if (isFirms) DataCell(isEditing ? SizedBox(width: 160, child: TextField(controller: TextEditingController(text: edit?['gstin'] ?? i['gstin'] ?? ''), onChanged: (v) => edit = {...?edit, 'gstin': v},)) : Text((i['gstin'] ?? '').toString())),
                       if (isFirms) DataCell(isEditing ? SizedBox(width: 140, child: TextField(controller: TextEditingController(text: edit?['mobile'] ?? i['mobile'] ?? ''), onChanged: (v) => edit = {...?edit, 'mobile': v},)) : Text((i['mobile'] ?? '').toString())),
