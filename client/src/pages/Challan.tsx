@@ -4,6 +4,7 @@ import { api, getOptions } from '../api';
 import { printLabel, getLabelPrinter } from '../utils/printer';
 import { Box, Button, Card, CardContent, FormControl, Grid, InputLabel, MenuItem, Select, Stack, TextField, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import { Catch } from '../components/Catch'
+import { ScaleErrorToast } from '../components/ScaleErrorToast'
 
 type Option = { id: number; name: string; weight_kg?: number; role_operator?: boolean; role_helper?: boolean }
 
@@ -463,7 +464,6 @@ export function ChallanPage() {
                   if (scaleError) setScaleError('')
                 }} inputProps={{ inputMode: 'decimal', min: 0, step: 0.001 }} />
                 <Catch onCatch={(w) => setForm({ ...form, gross_wt: (Math.round(w * 1000) / 1000) })} onFail={() => setScaleError('Scale is not connected')} disabled={false} />
-                {scaleError && <Typography color="error" variant="body2" sx={{ ml: 1 }}>{scaleError}</Typography>}
               </div>
             </Grid>
           </Grid>
@@ -579,6 +579,12 @@ export function ChallanPage() {
           </Stack>
         </CardContent>
       </Card>
+
+      {/* Scale Error Toast */}
+      <ScaleErrorToast 
+        error={scaleError} 
+        onDismiss={() => setScaleError('')} 
+      />
     </Stack>
   )
 }
