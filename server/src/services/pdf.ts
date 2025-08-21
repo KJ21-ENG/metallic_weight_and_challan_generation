@@ -9,6 +9,7 @@ type Customer = {
   name: string;
   address?: string | null;
   gstin?: string | null;
+  mobile?: string | null;
 };
 
 type ChallanItem = {
@@ -33,9 +34,8 @@ export async function generateChallanPdf(options: {
   items: ChallanItem[];
   firm?: { id: number; name: string; address?: string | null; gstin?: string | null; mobile?: string | null; email?: string | null };
   lotNumber?: string | number | null;
-  pendingWeightKg?: number | null;
 }): Promise<{ absolutePath: string; relativePath: string }> {
-  const { challanNo, dateISO, customer, shiftName, items, firm, lotNumber, pendingWeightKg } = options;
+  const { challanNo, dateISO, customer, shiftName, items, firm, lotNumber } = options;
 
   const date = dayjs(dateISO);
   const yearYY = date.format("YY");
@@ -82,7 +82,7 @@ export async function generateChallanPdf(options: {
   const safeHeight = pageHeight - (margin * 2);
   
   // Split into two equal halves with gutter
-  const gutter = 12;
+  const gutter = 8;
   const halfWidth = (safeWidth - gutter) / 2;
   const halfHeight = safeHeight;
   
@@ -116,26 +116,25 @@ export async function generateChallanPdf(options: {
     const centerX = boxX + boxW / 2;
     const centerY = boxY + boxH / 2;
     doc.rotate(-30, { origin: [centerX, centerY] });
-    doc.font("Helvetica-Bold").fontSize(32).text(watermark, centerX - 70, centerY - 15, { width: 140, align: "center" });
+    doc.font("Helvetica-Bold").fontSize(32).text(watermark, centerX - 100, centerY - 15, { width: 200, align: "center" });
     doc.restore();
 
     // Title
     doc.font("Helvetica-Bold").fontSize(14).fillColor(lightText).text("Delivery Challan", boxX, boxY + 8, { width: boxW, align: "center" });
 
     // Challan No and Date row
-    const infoY = boxY + 32;
-    doc.rect(boxX + 6, infoY, boxW - 12, 24).stroke(borderColor);
-    doc.font("Helvetica").fontSize(8).fillColor(grayText);
+    const infoY = boxY + 20;
+    doc.font("Helvetica-Bold").fontSize(8).fillColor(grayText);
     doc.text(`Challan No: ${String(challanNo).padStart(6, "0")}`, boxX + 12, infoY + 6);
-    doc.text(`Date: ${date.format("DD/MM/YYYY")}`, boxX + boxW / 2, infoY + 6);
+    doc.text(`Date: ${date.format("DD/MM/YYYY")}`, boxX + boxW - 80, infoY + 6, { width: 70, align: "right" });
 
     // Shift & Customer info
-    const smallY = infoY + 30;
-    doc.text(`Shift: ${shiftName}`, boxX + 12, smallY);
-    doc.text(`Customer: ${customer.name}`, boxX + boxW / 2, smallY);
+    // const smallY = infoY + 30;
+    // doc.text(`Shift: ${shiftName}`, boxX + 12, smallY);
+    // doc.text(`Customer: ${customer.name}`, boxX + boxW / 2, smallY);
 
     // From / To boxes
-    const partyY = smallY + 14;
+    const partyY = infoY + 20;
     const colW = (boxW - 18) / 2;
     doc.rect(boxX + 6, partyY, colW, 48).stroke(borderColor);
     doc.rect(boxX + 12 + colW, partyY, colW, 48).stroke(borderColor);
@@ -145,25 +144,49 @@ export async function generateChallanPdf(options: {
     doc.font("Helvetica").fontSize(8).fillColor(lightText);
     const firmName = firm?.name || "Company Name";
     const firmAddr = firm?.address || "";
-    doc.text(firmName, boxX + 10, partyY + 16);
-    if (firmAddr) doc.text(firmAddr, boxX + 10, partyY + 26, { width: colW - 12 });
+    doc.text(firmName, boxX + 35, partyY + 4);
+    
+    // From Address header and data
+    doc.font("Helvetica-Bold").fontSize(8).fillColor(lightText).text("Address:", boxX + 10, partyY + 16);
+    if (firmAddr) {
+      doc.font("Helvetica").fontSize(8).fillColor(lightText);
+      doc.text(firmAddr, boxX + 47, partyY + 16, { width: colW - 35 });
+    }
+    
+    // From Mobile header and data
+    doc.font("Helvetica-Bold").fontSize(8).fillColor(lightText).text("Mobile No:", boxX + 10, partyY + 28);
+    if (firm?.mobile) {
+      doc.font("Helvetica").fontSize(8).fillColor(lightText);
+      doc.text(firm.mobile, boxX + 53, partyY + 28, { width: colW - 35 });
+    }
 
     // To section
     doc.font("Helvetica-Bold").fontSize(8).fillColor(lightText).text("To:", boxX + 18 + colW, partyY + 4);
     doc.font("Helvetica").fontSize(8).fillColor(lightText);
-    doc.text(customer.name, boxX + 18 + colW, partyY + 16, { width: colW - 12 });
-    if (customer.address) doc.text(String(customer.address), boxX + 18 + colW, partyY + 26, { width: colW - 12 });
-
-    // LOT NO and Pending Weight - positioned below the From/To boxes
-    const lotY = partyY + 54;
-    const lotDisplay = String(lotNumber ?? "-");
-    const pendingWeightDisplay = (pendingWeightKg !== null && pendingWeightKg !== undefined) ? `${Number(pendingWeightKg).toFixed(2)} kg` : "-";
+    doc.text(customer.name, boxX + 33 + colW, partyY + 4, { width: colW - 12 });
     
-    doc.font("Helvetica-Bold").fontSize(8).fillColor(lightText).text(`LOT NO:- ${lotDisplay}`, boxX + 10, lotY);
-    doc.font("Helvetica").fontSize(8).fillColor(grayText).text(`(Total Pending Weight: ${pendingWeightDisplay})`, boxX + boxW - 140, lotY, { width: 130, align: "right" });
+    // To Address header and data
+    doc.font("Helvetica-Bold").fontSize(8).fillColor(lightText).text("Address:", boxX + 18 + colW, partyY + 16);
+    if (customer.address) {
+      doc.font("Helvetica").fontSize(8).fillColor(lightText);
+      doc.text(String(customer.address), boxX + 55 + colW, partyY + 16, { width: colW - 35 });
+    }
+    
+    // To Mobile header and data
+    doc.font("Helvetica-Bold").fontSize(8).fillColor(lightText).text("Mobile No:", boxX + 18 + colW, partyY + 28);
+    if (customer.mobile) {
+      doc.font("Helvetica").fontSize(8).fillColor(lightText);
+      doc.text(String(customer.mobile), boxX + 60 + colW, partyY + 28, { width: colW - 35 });
+    }
 
-    // Table setup - start below LOT NO
-    const tableY = lotY + 16;
+    // LOT NO - positioned below the From/To boxes
+    // const lotY = partyY + 54;
+    // const lotDisplay = String(lotNumber ?? "-");
+    
+    // doc.font("Helvetica-Bold").fontSize(8).fillColor(lightText).text(`LOT NO:- ${lotDisplay}`, boxX + 10, lotY);
+
+    // Table setup - start below From/To boxes
+    const tableY = partyY + 54;
     const headerH = 16;
     const totalH = 16;
     const maxRowsPerBlock = 20;
@@ -181,42 +204,68 @@ export async function generateChallanPdf(options: {
     if (rowH < 10) rowH = 10;
     if (rowH > 18) rowH = 18;
 
-    // Column widths inside a block
-    const innerColSr = 0.08 * (colBlockW - 6);
-    const innerColDetails = 0.52 * (colBlockW - 6);
-    const innerColNet = 0.20 * (colBlockW - 6);
-    const innerColQty = 0.20 * (colBlockW - 6);
+     // Column widths inside a block - adjusted for "Sr No" header
+     const innerColSr = Math.max(25, 0.12 * (colBlockW - 6)); // Minimum 25pt width for "Sr No"
+     const innerColDetails = 0.48 * (colBlockW - 6);
+     const innerColNet = 0.20 * (colBlockW - 6);
+     const innerColQty = 0.20 * (colBlockW - 6);
 
     function drawColumn(startIndex: number, originX: number, yStart: number) {
       let rowY = yStart;
       let total = { qty: 0, net: 0 };
 
-      // Header
-      doc.rect(originX, rowY, colBlockW, headerH).stroke(borderColor);
-      doc.font("Helvetica-Bold").fontSize(8).fillColor(lightText);
-      doc.text("Sr", originX + 2, rowY + 4, { width: innerColSr, align: "center" });
-      doc.text("Details", originX + 2 + innerColSr, rowY + 4, { width: innerColDetails, align: "center" });
-      doc.text("Net.WT", originX + 2 + innerColSr + innerColDetails, rowY + 4, { width: innerColNet, align: "center" });
-      doc.text("Bobbins", originX + 2 + innerColSr + innerColDetails + innerColNet, rowY + 4, { width: innerColQty, align: "center" });
+             // Header
+       doc.rect(originX, rowY, colBlockW, headerH).stroke(borderColor);
+       
+       // Draw vertical lines in header to separate columns
+       const headerCol1X = originX + innerColSr;
+       const headerCol2X = originX + innerColSr + innerColDetails;
+       const headerCol3X = originX + innerColSr + innerColDetails + innerColNet;
+       
+       doc.lineWidth(0.5).strokeColor(borderColor);
+       doc.moveTo(headerCol1X, rowY).lineTo(headerCol1X, rowY + headerH).stroke();
+       doc.moveTo(headerCol2X, rowY).lineTo(headerCol2X, rowY + headerH).stroke();
+       doc.moveTo(headerCol3X, rowY).lineTo(headerCol3X, rowY + headerH).stroke();
+       
+       doc.font("Helvetica-Bold").fontSize(8).fillColor(lightText);
+       doc.text("Sr No", originX + 2, rowY + 4, { width: innerColSr, align: "center" });
+       doc.text("Details", originX + 6 + innerColSr, rowY + 4, { width: innerColDetails - 8, align: "center" });
+       doc.text("Net.WT", originX + 4 + innerColSr + innerColDetails, rowY + 4, { width: innerColNet - 4, align: "center" });
+       doc.text("Bobbins", originX + 4 + innerColSr + innerColDetails + innerColNet, rowY + 4, { width: innerColQty - 4, align: "center" });
 
       rowY += headerH;
 
-      for (let i = 0; i < maxRowsPerBlock; i++) {
-        const idx = startIndex + i;
-        if (rowY + rowH > boxY + boxH - signatureSpace - totalH) break;
-        doc.rect(originX, rowY, colBlockW, rowH).stroke(borderColor);
-        if (idx < items.length) {
-          const it = items[idx];
-          const details = `${it.metallic_name} - ${it.cut_name}`;
-          doc.font("Helvetica").fontSize(8).fillColor(lightText);
-          doc.text(String(idx + 1).padStart(2, "0"), originX + 2, rowY + 4, { width: innerColSr, align: "center" });
-          doc.text(details, originX + 2 + innerColSr, rowY + 4, { width: innerColDetails - 4 });
-          doc.text(it.net_wt.toFixed(3), originX + 2 + innerColSr + innerColDetails, rowY + 4, { width: innerColNet, align: "center" });
-          doc.text(String(it.bob_qty), originX + 2 + innerColSr + innerColDetails + innerColNet, rowY + 4, { width: innerColQty, align: "center" });
-          total.qty += it.bob_qty; total.net += it.net_wt;
-        }
-        rowY += rowH;
-      }
+             for (let i = 0; i < maxRowsPerBlock; i++) {
+         const idx = startIndex + i;
+         if (rowY + rowH > boxY + boxH - signatureSpace - totalH) break;
+         
+         // Draw row rectangle
+         doc.rect(originX, rowY, colBlockW, rowH).stroke(borderColor);
+         
+         // Draw vertical lines to separate columns
+         const col1X = originX + innerColSr;
+         const col2X = originX + innerColSr + innerColDetails;
+         const col3X = originX + innerColSr + innerColDetails + innerColNet;
+         
+         doc.lineWidth(0.5).strokeColor(borderColor);
+         doc.moveTo(col1X, rowY).lineTo(col1X, rowY + rowH).stroke();
+         doc.moveTo(col2X, rowY).lineTo(col2X, rowY + rowH).stroke();
+         doc.moveTo(col3X, rowY).lineTo(col3X, rowY + rowH).stroke();
+         
+         // Always show serial number
+         doc.font("Helvetica").fontSize(8).fillColor(lightText);
+         doc.text(String(idx + 1).padStart(2, "0"), originX + 2, rowY + 4, { width: innerColSr, align: "center" });
+         
+         if (idx < items.length) {
+           const it = items[idx];
+           const details = `${it.metallic_name} - ${it.cut_name}`;
+           doc.text(details, originX + 6 + innerColSr, rowY + 4, { width: innerColDetails - 8 });
+           doc.text(it.net_wt.toFixed(3), originX + 4 + innerColSr + innerColDetails, rowY + 4, { width: innerColNet - 4, align: "center" });
+           doc.text(String(it.bob_qty), originX + 4 + innerColSr + innerColDetails + innerColNet, rowY + 4, { width: innerColQty - 4, align: "center" });
+           total.qty += it.bob_qty; total.net += it.net_wt;
+         }
+         rowY += rowH;
+       }
 
       // Do not draw per-column total here; return totals so caller can render combined total
       return { y: rowY, total };
