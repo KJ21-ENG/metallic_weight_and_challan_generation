@@ -310,10 +310,24 @@ export function ManagementPage() {
           <Pagination count={Math.ceil(total / LIMIT) || 1} page={page} onChange={(_, p) => fetchPage(p)} color="primary" />
         </Box>
       </Box>
-      <Dialog open={!!deleteRow} onClose={() => setDeleteRow(null)}>
+      <Dialog open={!!deleteRow} onClose={() => setDeleteRow(null)} maxWidth="sm">
         <DialogTitle>Delete Challan #{deleteRow ? String(deleteRow.challan_no).padStart(6,'0') : ''}</DialogTitle>
         <DialogContent>
-          <TextField label="Reason" fullWidth value={deleteReason} onChange={e => setDeleteReason(e.target.value)} placeholder="Enter reason" />
+          <TextField 
+            label="Reason" 
+            fullWidth 
+            value={deleteReason} 
+            onChange={e => setDeleteReason(e.target.value)} 
+            placeholder="Enter reason"
+            InputLabelProps={{
+              sx: { 
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }
+            }}
+            sx={{ mt: 1 }}
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteRow(null)} variant="outlined">Cancel</Button>
