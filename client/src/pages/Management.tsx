@@ -235,6 +235,28 @@ export function ManagementPage() {
                       </TableRow>
                     )
                   })}
+                  {items.length > 0 && (() => {
+                    const totals = items.reduce((acc, it) => {
+                      const bobWt = weightOf(bobTypes, it.bob_type_id)
+                      const boxWt = weightOf(boxTypes, it.box_type_id)
+                      const tare = (Number(it.bob_qty) || 0) * bobWt + boxWt
+                      const net = (Number(it.gross_wt) || 0) - tare
+                      acc.qty += Number(it.bob_qty) || 0
+                      acc.net += net
+                      return acc
+                    }, { qty: 0, net: 0 })
+
+                    return (
+                      <TableRow sx={{ '& td': { borderTop: '1px solid rgba(0,0,0,0.12)' } }}>
+                        <TableCell colSpan={7} sx={{ pl: 2 }}><b>Totals</b></TableCell>
+                        <TableCell align="right"><b>{totals.qty}</b></TableCell>
+                        <TableCell align="right">&nbsp;</TableCell>
+                        <TableCell align="right">&nbsp;</TableCell>
+                        <TableCell align="right"><b>{totals.net.toFixed(3)}</b></TableCell>
+                        <TableCell />
+                      </TableRow>
+                    )
+                  })()}
                 </TableBody>
               </Table>
             </TableContainer>
