@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, LinearProgress, styled } from '@mui/material';
 import { APP_VERSION } from '../utils/version';
+import aalekhanLogo from '../assets/Aalekhan_logo.jpg';
 import {
   Language as GlobeIcon,
   Phone as PhoneIcon,
@@ -197,7 +198,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           <LogoContainer>
             <LogoCircle>
               <LogoText 
-                src="/Aalekhan_logo.jpg"
+                src={aalekhanLogo}
                 alt="Aalekhan Logo"
               />
             </LogoCircle>

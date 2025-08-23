@@ -41,6 +41,7 @@
     ],
     "extraResources": [
       { "from": "../client/dist", "to": "client-dist" },
+      { "from": "../client/public", "to": "client-dist/public" },
       { "from": "../server/dist", "to": "server-dist" },
       { "from": "../server/node_modules", "to": "server-dist/node_modules" },
       { "from": "../server/.env", "to": ".env" },
