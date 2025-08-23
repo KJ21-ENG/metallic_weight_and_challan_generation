@@ -176,6 +176,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
 }) => {
   const [progress, setProgress] = useState(0);
   const [startTime] = useState(Date.now());
+  const [isCompleting, setIsCompleting] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -197,6 +198,9 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
       const elapsedTime = Date.now() - startTime;
       
       if (elapsedTime >= minDuration) {
+        // Start fade-out effect
+        setIsCompleting(true);
+        
         // Add a small delay for smooth transition
         setTimeout(() => {
           if (onComplete) {
@@ -208,7 +212,12 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   }, [isAppReady, progress, startTime, minDuration, onComplete]);
 
   return (
-    <SplashContainer>
+    <SplashContainer
+      sx={{
+        opacity: isCompleting ? 0 : 1,
+        transition: 'opacity 0.5s ease-out',
+      }}
+    >
       <MainCard>
         <LeftPanel>
           <LogoContainer>
