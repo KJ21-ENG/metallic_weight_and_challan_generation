@@ -1,7 +1,7 @@
 {
   "name": "metallic-challan-desktop",
   "version": "1.0.0",
-  "description": "",
+  "description": "Bohra Jari challan generation",
   "main": "main.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -19,7 +19,7 @@
     "dist": "npm run prepare:prod && electron-builder"
   },
   "keywords": [],
-  "author": "",
+  "author": "Aalekhan IT Solutions",
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
@@ -30,8 +30,8 @@
     "wait-on": "^8.0.4"
   },
   "build": {
-    "appId": "com.metallic.challan",
-    "productName": "Metallic Challan",
+    "appId": "com.bohra.jari",
+    "productName": "Metallic Challan generation",
     "directories": { "output": "dist-app" },
     "asar": false,
     "files": [
@@ -49,6 +49,17 @@
     "afterPack": "scripts/after-pack.js",
     "mac": { "target": [ { "target": "dmg", "arch": ["x64", "arm64"] } ] },
     "win": { "target": [ { "target": "nsis", "arch": ["x64"] } ] },
-    "linux": { "target": [ "AppImage" ] }
+    "linux": { "target": [ "AppImage" ] },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Metallic Challan generation",
+      "license": "LICENSE.txt",
+      "runAfterFinish": true
+    }
   }
 }
