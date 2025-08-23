@@ -359,13 +359,7 @@ function createWindow() {
     show: false,
   });
 
-  const isDev = !!process.env.APP_URL;
-  const startUrl = process.env.APP_URL || `file://${path.join(__dirname, 'index.html')}`;
-  mainWindow.loadURL(startUrl);
-
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.show();
-  });
+  mainWindow.maximize();
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -423,7 +417,13 @@ function logToFile(message) {
 function loadClientFromResources() {
   try {
     const clientIndex = `file://${path.join(process.resourcesPath, 'client-dist', 'index.html')}`;
-    if (mainWindow) mainWindow.loadURL(clientIndex);
+    if (mainWindow) {
+      mainWindow.loadURL(clientIndex);
+      mainWindow.once('ready-to-show', () => {
+        console.log('Client loaded from resources, showing window');
+        mainWindow.show();
+      });
+    }
   } catch (e) {
     console.error('Failed to load client from resources', e);
     logToFile(`Failed to load client from resources: ${String(e && e.stack || e)}`);
@@ -478,14 +478,35 @@ async function startProductionServerAndLoad() {
   await waitForServer(`http://localhost:${chosenPort}/api/health`);
   // Load built client with apiBase query param
   const clientIndex = `file://${path.join(process.resourcesPath, 'client-dist', 'index.html')}?apiBase=${encodeURIComponent(`http://localhost:${chosenPort}`)}`;
-  if (mainWindow) mainWindow.loadURL(clientIndex);
+  console.log('Loading main application from:', clientIndex);
+  if (mainWindow) {
+    mainWindow.loadURL(clientIndex);
+    mainWindow.once('ready-to-show', () => {
+      console.log('Main application ready, showing window');
+      mainWindow.show();
+    });
+  }
 }
 
 app.whenReady().then(async () => {
   createWindow();
-  if (!process.env.APP_URL) {
-    try { await startProductionServerAndLoad(); }
-    catch (e) {
+  
+  if (process.env.APP_URL) {
+    // Development mode - load the dev server URL directly
+    const devUrl = process.env.APP_URL;
+    console.log('Development mode - loading from:', devUrl);
+    if (mainWindow) {
+      mainWindow.loadURL(devUrl);
+      mainWindow.once('ready-to-show', () => {
+        console.log('Development app ready, showing window');
+        mainWindow.show();
+      });
+    }
+  } else {
+    // Production mode - start server and load built client
+    try { 
+      await startProductionServerAndLoad(); 
+    } catch (e) {
       /* eslint-disable no-console */
       console.error('Error starting production server', e);
       logToFile(`Error starting production server: ${String(e && e.stack || e)}`);

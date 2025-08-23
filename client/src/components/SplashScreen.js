@@ -135,29 +135,41 @@ const DecorativeTriangle = styled(Box)(({ theme }) => ({
     borderBottom: '60px solid #E3F2FD',
     opacity: 0.7,
 }));
-export const SplashScreen = ({ onComplete, duration = 3000 }) => {
+export const SplashScreen = ({ onComplete, isAppReady = false, minDuration = 5000 }) => {
     const [progress, setProgress] = useState(0);
+    const [startTime] = useState(Date.now());
     useEffect(() => {
         const timer = setInterval(() => {
             setProgress((prevProgress) => {
                 if (prevProgress >= 100) {
                     clearInterval(timer);
-                    if (onComplete) {
-                        setTimeout(onComplete, 500);
-                    }
                     return 100;
                 }
                 return prevProgress + 2;
             });
-        }, duration / 50);
+        }, minDuration / 50);
         return () => clearInterval(timer);
-    }, [duration, onComplete]);
-    return (_jsx(SplashContainer, { children: _jsxs(MainCard, { children: [_jsxs(LeftPanel, { children: [_jsx(LogoContainer, { children: _jsx(LogoCircle, { children: _jsx(LogoText, { src: aalekhanLogo, alt: "Aalekhan Logo" }) }) }), _jsxs(ContactInfo, { children: [_jsxs(ContactItem, { children: [_jsx(GlobeIcon, { sx: { fontSize: 20 } }), _jsx("span", { children: "www.aalekhantech.com" })] }), _jsxs(ContactItem, { children: [_jsx(PhoneIcon, { sx: { fontSize: 20 } }), _jsx("span", { children: "+91 94095 40069" })] }), _jsxs(ContactItem, { children: [_jsx(EmailIcon, { sx: { fontSize: 20 } }), _jsx("span", { children: "aalekhantech@gmail.com" })] })] })] }), _jsxs(RightPanel, { children: [_jsxs(ServicesSection, { children: [_jsx(ServicesTitle, { children: "WHAT WE OFFER" }), _jsx(TitleUnderline, {}), _jsxs(ServicesList, { children: [_jsxs(ServiceItem, { children: [_jsx(ServiceIcon, { children: _jsx(WrenchIcon, {}) }), _jsx("span", { children: "Custom Software Development" })] }), _jsxs(ServiceItem, { children: [_jsx(ServiceIcon, { children: _jsx(MobileIcon, {}) }), _jsx("span", { children: "Mobile & Web App Solutions" })] }), _jsxs(ServiceItem, { children: [_jsx(ServiceIcon, { children: _jsx(BuildingIcon, {}) }), _jsx("span", { children: "Website Development" })] }), _jsxs(ServiceItem, { children: [_jsx(ServiceIcon, { children: _jsx(CircleIcon, {}) }), _jsx("span", { children: "UI/UX Design & Prototyping" })] }), _jsxs(ServiceItem, { children: [_jsx(ServiceIcon, { children: _jsx(CircleIcon, {}) }), _jsx("span", { children: "DevOps & Automation" })] }), _jsxs(ServiceItem, { children: [_jsx(ServiceIcon, { children: _jsx(StarIcon, {}) }), _jsx("span", { children: "Quality Assurance & Testing" })] })] })] }), _jsxs(BottomSection, { children: [_jsx(LoadingText, { children: "Loading application..." }), _jsx(Box, { sx: { flex: 1, mx: 2 }, children: _jsx(LinearProgress, { variant: "determinate", value: progress, sx: {
+    }, [minDuration]);
+    useEffect(() => {
+        // Only complete when both minimum time has passed AND app is ready
+        if (isAppReady && progress >= 100) {
+            const elapsedTime = Date.now() - startTime;
+            if (elapsedTime >= minDuration) {
+                // Add a small delay for smooth transition
+                setTimeout(() => {
+                    if (onComplete) {
+                        onComplete();
+                    }
+                }, 500);
+            }
+        }
+    }, [isAppReady, progress, startTime, minDuration, onComplete]);
+    return (_jsx(SplashContainer, { children: _jsxs(MainCard, { children: [_jsxs(LeftPanel, { children: [_jsx(LogoContainer, { children: _jsx(LogoCircle, { children: _jsx(LogoText, { src: aalekhanLogo, alt: "Aalekhan Logo" }) }) }), _jsxs(ContactInfo, { children: [_jsxs(ContactItem, { children: [_jsx(GlobeIcon, { sx: { fontSize: 20 } }), _jsx("span", { children: "www.aalekhantech.com" })] }), _jsxs(ContactItem, { children: [_jsx(PhoneIcon, { sx: { fontSize: 20 } }), _jsx("span", { children: "+91 94095 40069" })] }), _jsxs(ContactItem, { children: [_jsx(EmailIcon, { sx: { fontSize: 20 } }), _jsx("span", { children: "aalekhantech@gmail.com" })] })] })] }), _jsxs(RightPanel, { children: [_jsxs(ServicesSection, { children: [_jsx(ServicesTitle, { children: "WHAT WE OFFER" }), _jsx(TitleUnderline, {}), _jsxs(ServicesList, { children: [_jsxs(ServiceItem, { children: [_jsx(ServiceIcon, { children: _jsx(WrenchIcon, {}) }), _jsx("span", { children: "Custom Software Development" })] }), _jsxs(ServiceItem, { children: [_jsx(ServiceIcon, { children: _jsx(MobileIcon, {}) }), _jsx("span", { children: "Mobile & Web App Solutions" })] }), _jsxs(ServiceItem, { children: [_jsx(ServiceIcon, { children: _jsx(BuildingIcon, {}) }), _jsx("span", { children: "Website Development" })] }), _jsxs(ServiceItem, { children: [_jsx(ServiceIcon, { children: _jsx(CircleIcon, {}) }), _jsx("span", { children: "UI/UX Design & Prototyping" })] }), _jsxs(ServiceItem, { children: [_jsx(ServiceIcon, { children: _jsx(CircleIcon, {}) }), _jsx("span", { children: "DevOps & Automation" })] }), _jsxs(ServiceItem, { children: [_jsx(ServiceIcon, { children: _jsx(StarIcon, {}) }), _jsx("span", { children: "Quality Assurance & Testing" })] })] })] }), _jsxs(BottomSection, { children: [_jsx(LoadingText, { children: isAppReady ? 'Application ready...' : 'Loading application...' }), _jsx(Box, { sx: { flex: 1, mx: 2 }, children: _jsx(LinearProgress, { variant: "determinate", value: progress, sx: {
                                             height: 6,
                                             borderRadius: 3,
                                             backgroundColor: '#E0E0E0',
                                             '& .MuiLinearProgress-bar': {
-                                                backgroundColor: '#1976D2',
+                                                backgroundColor: isAppReady ? '#4CAF50' : '#1976D2',
                                                 borderRadius: 3,
                                             }
                                         } }) }), _jsxs(VersionText, { children: [_jsx(DecorativeTriangle, {}), "v", APP_VERSION] })] })] })] }) }));

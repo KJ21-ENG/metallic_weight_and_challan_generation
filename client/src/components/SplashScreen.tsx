@@ -165,31 +165,47 @@ const DecorativeTriangle = styled(Box)(({ theme }) => ({
 
 interface SplashScreenProps {
   onComplete?: () => void;
-  duration?: number;
+  isAppReady?: boolean;
+  minDuration?: number;
 }
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({ 
   onComplete, 
-  duration = 3000 
+  isAppReady = false,
+  minDuration = 5000 
 }) => {
   const [progress, setProgress] = useState(0);
+  const [startTime] = useState(Date.now());
 
   useEffect(() => {
     const timer = setInterval(() => {
       setProgress((prevProgress) => {
         if (prevProgress >= 100) {
           clearInterval(timer);
-          if (onComplete) {
-            setTimeout(onComplete, 500);
-          }
           return 100;
         }
         return prevProgress + 2;
       });
-    }, duration / 50);
+    }, minDuration / 50);
 
     return () => clearInterval(timer);
-  }, [duration, onComplete]);
+  }, [minDuration]);
+
+  useEffect(() => {
+    // Only complete when both minimum time has passed AND app is ready
+    if (isAppReady && progress >= 100) {
+      const elapsedTime = Date.now() - startTime;
+      
+      if (elapsedTime >= minDuration) {
+        // Add a small delay for smooth transition
+        setTimeout(() => {
+          if (onComplete) {
+            onComplete();
+          }
+        }, 500);
+      }
+    }
+  }, [isAppReady, progress, startTime, minDuration, onComplete]);
 
   return (
     <SplashContainer>
@@ -266,7 +282,9 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           </ServicesSection>
 
           <BottomSection>
-            <LoadingText>Loading application...</LoadingText>
+            <LoadingText>
+              {isAppReady ? 'Application ready...' : 'Loading application...'}
+            </LoadingText>
             
             <Box sx={{ flex: 1, mx: 2 }}>
               <LinearProgress 
@@ -277,7 +295,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
                   borderRadius: 3,
                   backgroundColor: '#E0E0E0',
                   '& .MuiLinearProgress-bar': {
-                    backgroundColor: '#1976D2',
+                    backgroundColor: isAppReady ? '#4CAF50' : '#1976D2',
                     borderRadius: 3,
                   }
                 }} 

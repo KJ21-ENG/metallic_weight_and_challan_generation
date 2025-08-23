@@ -33,7 +33,8 @@
     "appId": "com.bohra.jari",
     "productName": "Bohra Jari Challan System",
     "directories": { "output": "dist-app" },
-    "asar": false,
+    "icon": "Bohra_Jari_Logo.png",
+    "asar": true,
     "files": [
       "**/*",
       "!dist-app/**",
@@ -48,9 +49,9 @@
       { "from": "../server/package.json", "to": "server-dist/package.json" }
     ],
     "afterPack": "scripts/after-pack.js",
-    "mac": { "target": [ { "target": "dmg", "icon": "Bohra_Jari_Logo.png", "arch": ["x64", "arm64"] } ] },
-    "win": { "target": [ { "target": "nsis", "icon": "Bohra_Jari_Logo.png", "arch": ["x64"] } ] },
-    "linux": { "target": [ { "target": "AppImage", "icon": "Bohra_Jari_Logo.png" } ] },
+    "mac": { "target": [ { "target": "dmg", "arch": ["x64", "arm64"] } ] },
+    "win": { "target": [ { "target": "nsis", "arch": ["x64"] } ] },
+    "linux": { "target": [ "AppImage" ] },
     "nsis": {
       "oneClick": false,
       "perMachine": true,
