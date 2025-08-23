@@ -4,6 +4,7 @@ const http = require('http');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
+const iconConfig = require('./icon-config');
 
 let mainWindow;
 
@@ -349,6 +350,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
+    icon: iconConfig.main,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

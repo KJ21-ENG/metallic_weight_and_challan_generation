@@ -1,7 +1,7 @@
 {
-  "name": "metallic-challan-desktop",
+  "name": "bohra-jari-challan-desktop",
   "version": "1.0.0",
-  "description": "Bohra Jari challan generation",
+  "description": "Bohra Jari Challan Generation System",
   "main": "main.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -31,7 +31,7 @@
   },
   "build": {
     "appId": "com.bohra.jari",
-    "productName": "Metallic Challan generation",
+    "productName": "Bohra Jari Challan System",
     "directories": { "output": "dist-app" },
     "asar": false,
     "files": [
@@ -48,9 +48,9 @@
       { "from": "../server/package.json", "to": "server-dist/package.json" }
     ],
     "afterPack": "scripts/after-pack.js",
-    "mac": { "target": [ { "target": "dmg", "arch": ["x64", "arm64"] } ] },
-    "win": { "target": [ { "target": "nsis", "arch": ["x64"] } ] },
-    "linux": { "target": [ "AppImage" ] },
+    "mac": { "target": [ { "target": "dmg", "icon": "Bohra_Jari_Logo.png", "arch": ["x64", "arm64"] } ] },
+    "win": { "target": [ { "target": "nsis", "icon": "Bohra_Jari_Logo.png", "arch": ["x64"] } ] },
+    "linux": { "target": [ { "target": "AppImage", "icon": "Bohra_Jari_Logo.png" } ] },
     "nsis": {
       "oneClick": false,
       "perMachine": true,
@@ -58,7 +58,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Metallic Challan generation",
+      "shortcutName": "Bohra Jari Challan System",
       "license": "LICENSE.txt",
       "runAfterFinish": true
     }
