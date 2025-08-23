@@ -1,13 +1,13 @@
 import { Router, Request, Response, NextFunction } from "express";
 import dayjs from "dayjs";
-import { pool, withTransaction } from "../db";
+import { pool, withTransaction } from "../db.js";
 import { z } from "zod";
-import { computeNetKg, computeTareKg } from "../utils/weights";
-import { getNextSequence, peekSequence, incrementSequence } from "../services/sequencing";
-import { generateChallanPdf } from "../services/pdf";
+import { computeNetKg, computeTareKg } from "../utils/weights.js";
+import { getNextSequence, peekSequence, incrementSequence } from "../services/sequencing.js";
+import { generateChallanPdf } from "../services/pdf.js";
 import fs from "fs";
 import path from "path";
-import { config } from "../config";
+import { config } from "../config.js";
 
 export const challansRouter = Router();
 

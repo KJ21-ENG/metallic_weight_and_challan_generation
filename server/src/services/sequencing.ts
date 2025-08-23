@@ -1,4 +1,4 @@
-import { withTransaction } from "../db";
+import { withTransaction } from "../db.js";
 
 export async function getNextSequence(key: string): Promise<number> {
   return withTransaction(async (client) => {

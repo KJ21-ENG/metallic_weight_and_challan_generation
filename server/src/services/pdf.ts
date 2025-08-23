@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import PDFDocument from "pdfkit";
 import dayjs from "dayjs";
-import { config } from "../config";
+import { config } from "../config.js";
 
 type Customer = {
   id: number;

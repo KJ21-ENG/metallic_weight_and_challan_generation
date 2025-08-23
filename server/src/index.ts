@@ -1,9 +1,9 @@
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import path from "path";
-import { config } from "./config";
-import { masterRouter } from "./routes/master";
-import { challansRouter } from "./routes/challans";
+import { config } from "./config.js";
+import { masterRouter } from "./routes/master.js";
+import { challansRouter } from "./routes/challans.js";
 // reportsRouter removed as Reports module deleted
 
 const app = express();

@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { pool } from "../db";
+import { pool } from "../db.js";
 
 async function ensureMigrationsTable() {
   await pool.query(`
