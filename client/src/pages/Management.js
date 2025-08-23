@@ -44,7 +44,7 @@ export function ManagementPage() {
         if (row.id) {
             try {
                 // Preload the PDF in background
-                await api.get(`/api/challans/${row.id}/preload-pdf`);
+                await api.get(`/challans/${row.id}/preload-pdf`);
             }
             catch (err) {
                 // Ignore preload errors, continue with normal flow
@@ -55,7 +55,9 @@ export function ManagementPage() {
         if (row.id) {
             // Preload first, then open
             preloadPdf(row);
-            window.open(`/api/challans/${row.id}/print`, '_blank');
+            const baseURL = api.defaults.baseURL;
+            const pdfUrl = `${baseURL}/challans/${row.id}/print`;
+            window.open(pdfUrl, '_blank');
         }
     }
     async function startEdit(row) {
