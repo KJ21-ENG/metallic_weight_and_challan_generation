@@ -120,8 +120,8 @@ ipcMain.handle('print-silently', async (event, options) => {
           marginType: 'none'
         },
         pageSize: {
-          width: 283000, // 75mm in microns
-          height: 472000  // 125mm in microns
+          width: 75 * 1000,   // 75mm in microns
+          height: 125 * 1000  // 125mm in microns
         }
       };
       
