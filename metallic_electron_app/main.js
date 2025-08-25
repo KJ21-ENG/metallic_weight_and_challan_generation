@@ -435,17 +435,55 @@ async function startProductionServerAndLoad() {
   const serverDistPath = path.join(process.resourcesPath, 'server-dist');
   const serverMain = path.join(serverDistPath, 'index.js');
   // Run server with Electron's node runtime by toggling ELECTRON_RUN_AS_NODE.
-  // Use a writable PROJECT_ROOT so PDFs and files can be saved in production.
-  const writableProjectRoot = app.getPath('userData');
+  // Use a PROJECT_ROOT on the same drive as installation so PDFs go to that drive.
+  // Prefer <Drive>:\Bohra Jari Challan System, falling back to userData if needed.
+  function isWritableDir(dir) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      const probe = path.join(dir, '.write-probe.tmp');
+      fs.writeFileSync(probe, 'ok');
+      fs.unlinkSync(probe);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function pickProjectRoot() {
+    const candidates = [];
+    try {
+      const parsed = path.parse(process.resourcesPath);
+      const driveRoot = parsed.root; // e.g., 'D:\\'
+      if (driveRoot && /^[A-Za-z]:\\$/.test(driveRoot)) {
+        candidates.push(path.join(driveRoot, 'Bohra Jari Challan System'));
+      }
+    } catch {}
+    try {
+      const installDir = path.dirname(process.resourcesPath);
+      candidates.push(installDir);
+    } catch {}
+    candidates.push(app.getPath('userData'));
+
+    for (const c of candidates) {
+      if (isWritableDir(c)) {
+        try { logToFile(`Selected PROJECT_ROOT=${c}`); } catch {}
+        return c;
+      } else {
+        try { logToFile(`PROJECT_ROOT not writable, skipping: ${c}`); } catch {}
+      }
+    }
+    return app.getPath('userData');
+  }
+  const desiredProjectRoot = pickProjectRoot();
   // Ensure packaged .env (in resources) is available to the server by copying it into the
   // writable project root where the server looks for PROJECT_ROOT/.env. This preserves
   // writable location for PDFs while allowing the server to read env vars from .env.
   try {
     const packagedEnv = path.join(process.resourcesPath, '.env');
-    const targetEnv = path.join(writableProjectRoot, '.env');
+    const targetEnv = path.join(desiredProjectRoot, '.env');
     if (fs.existsSync(packagedEnv)) {
       // create target dir if necessary
-      try { fs.mkdirSync(writableProjectRoot, { recursive: true }); } catch (e) {}
+      try { fs.mkdirSync(desiredProjectRoot, { recursive: true }); } catch (e) {}
       fs.copyFileSync(packagedEnv, targetEnv);
       logToFile(`Copied packaged .env to ${targetEnv}`);
     }
@@ -456,7 +494,14 @@ async function startProductionServerAndLoad() {
   const chosenPort = process.env.PORT || '4000';
   // Launch server as a normal Node script using Electron's embedded Node (ELECTRON_RUN_AS_NODE)
   const stdio = ['ignore', 'pipe', 'pipe'];
-  const spawnEnv = { ...process.env, ELECTRON_RUN_AS_NODE: '1', NODE_ENV: 'production', PORT: chosenPort, PROJECT_ROOT: writableProjectRoot };
+  const spawnEnv = { 
+    ...process.env, 
+    ELECTRON_RUN_AS_NODE: '1', 
+    NODE_ENV: 'production', 
+    PORT: chosenPort, 
+    PROJECT_ROOT: desiredProjectRoot,
+    RESOURCES_ENV_PATH: path.join(process.resourcesPath, '.env')
+  };
   const spawnOpts = { cwd: serverDistPath, env: spawnEnv, stdio, windowsHide: true };
   serverChild = spawn(process.execPath, [serverMain], spawnOpts);
 
