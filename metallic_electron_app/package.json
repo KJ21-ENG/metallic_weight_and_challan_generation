@@ -32,7 +32,9 @@
   "build": {
     "appId": "com.bohra.jari",
     "productName": "Bohra Jari Challan System",
-    "directories": { "output": "dist-app" },
+    "directories": {
+      "output": "dist-app"
+    },
     "icon": "Bohra_Jari_Logo.png",
     "asar": true,
     "files": [
@@ -41,17 +43,58 @@
       "!node_modules/**/.cache/**"
     ],
     "extraResources": [
-      { "from": "../client/dist", "to": "client-dist" },
-      { "from": "../client/public", "to": "client-dist/public" },
-      { "from": "../server/dist", "to": "server-dist" },
-      { "from": "../server/node_modules", "to": "server-dist/node_modules" },
-      { "from": "../server/.env", "to": ".env" },
-      { "from": "../server/package.json", "to": "server-dist/package.json" }
+      {
+        "from": "../client/dist",
+        "to": "client-dist"
+      },
+      {
+        "from": "../client/public",
+        "to": "client-dist/public"
+      },
+      {
+        "from": "../server/dist",
+        "to": "server-dist"
+      },
+      {
+        "from": "../server/node_modules",
+        "to": "server-dist/node_modules"
+      },
+      {
+        "from": "../server/.env",
+        "to": ".env"
+      },
+      {
+        "from": "../server/package.json",
+        "to": "server-dist/package.json"
+      }
     ],
     "afterPack": "scripts/after-pack.js",
-    "mac": { "target": [ { "target": "dmg", "arch": ["x64", "arm64"] } ] },
-    "win": { "target": [ { "target": "nsis", "arch": ["x64"] } ] },
-    "linux": { "target": [ "AppImage" ] },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ]
+    },
     "nsis": {
       "oneClick": false,
       "perMachine": true,
@@ -63,5 +106,8 @@
       "license": "LICENSE.txt",
       "runAfterFinish": true
     }
+  },
+  "dependencies": {
+    "serialport": "^13.0.0"
   }
 }
